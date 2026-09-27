@@ -189,9 +189,12 @@ bool drawDepartures(Inkplate &display, const FontCollection &fonts, const char *
     else
     {
       Serial.printf("JSON parse error for departures: %s\n", error.c_str());
-      display.setCursor(xpos, startYpos);
+      display.setTextColor(_BLACK, _WHITE);
+      drawHeader(display, fonts.boldTextFont, title, xpos, startYpos);
+      int ypos = startYpos + row_height;
+      display.setCursor(xpos, ypos);
       display.setFont(&fonts.normalTextFont);
-      display.println("JSON parse error");
+      display.print("JSON parse error");
     }
   }
   else
@@ -199,22 +202,51 @@ bool drawDepartures(Inkplate &display, const FontCollection &fonts, const char *
     // Show error message
     String response = http.getString();
     Serial.println("Error on HTTP request: " + String(httpCode) + " " + String(requestUrl) + " " + response);
-    display.setCursor(xpos, startYpos);
+
+    display.setTextColor(_BLACK, _WHITE);
+    drawHeader(display, fonts.boldTextFont, title, xpos, startYpos);
+
+    int ypos = startYpos + row_height;
+    display.setCursor(xpos, ypos);
     display.setFont(&fonts.normalTextFont);
-    display.print("Error on API call (");
-    display.print(httpCode);
-    display.println("):");
+    display.printf("Error on API call (%d):", httpCode);
 
-    startYpos += row_height;
-    display.setCursor(xpos, startYpos);
-    display.setFont(&fonts.smallTextFont);
+    ypos += fonts.smallTextFont.yAdvance + 4;
 
-    if (response.length() > 0) {
-      String shortResponse = response.substring(0, 200);
-      drawWrappedText(display, fonts.smallTextFont, shortResponse.c_str(), xpos, startYpos, E_INK_WIDTH - xpos - rightMargin);
-    } else {
-      display.print("(Empty response)");
+    String errMsg = "";
+    if (response.length() > 0)
+    {
+      JsonDocument errDoc;
+      DeserializationError err = deserializeJson(errDoc, response);
+      if (!err)
+      {
+        if (errDoc["message"].is<const char *>())
+        {
+          errMsg = errDoc["message"].as<const char *>();
+        }
+        else if (errDoc["error"].is<const char *>())
+        {
+          errMsg = errDoc["error"].as<const char *>();
+        }
+        else if (errDoc["description"].is<const char *>())
+        {
+          errMsg = errDoc["description"].as<const char *>();
+        }
+      }
+
+      if (errMsg.length() == 0)
+      {
+        errMsg = response.substring(0, 200);
+      }
     }
+    else
+    {
+      errMsg = "(Empty response)";
+    }
+
+    char isoErrMsg[256];
+    utf8ToIso88591(errMsg.c_str(), isoErrMsg, sizeof(isoErrMsg));
+    drawWrappedText(display, fonts.smallTextFont, isoErrMsg, xpos, ypos, E_INK_WIDTH - xpos - rightMargin);
   }
   http.end();
   return success;
