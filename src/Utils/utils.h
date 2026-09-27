@@ -8,5 +8,5 @@ struct FontCollection {
     const GFXfont &smallTextFont;
 };
 
-void utf8ToIso88591(const char *utf8, char *iso);
+void utf8ToIso88591(const char *utf8, char *iso, size_t maxIsoLen = 0);
 void extractHourAndMinute(const char *timestamp, int &hour, int &minute);
