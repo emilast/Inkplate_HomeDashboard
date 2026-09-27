@@ -22,6 +22,9 @@
 #include "HTTPClient.h" //Include library for HTTPClient
 #include <ArduinoJson.h>
 #include <WiFiManager.h>
+#include <esp_task_wdt.h>
+
+#define WDT_TIMEOUT_SECONDS 60
 
 #include "constants.h"
 
@@ -108,6 +111,10 @@ void setup()
 {
   Serial.begin(115200);
 
+  // Initialize Hardware / Task Watchdog Timer
+  esp_task_wdt_init(WDT_TIMEOUT_SECONDS, true);
+  esp_task_wdt_add(NULL);
+
   // display.changeWaveform(INKPLATE10_WAVEFORM1);
 
   display.begin();        // Init library (you should call this function ONLY ONCE)
@@ -138,6 +145,8 @@ void setup()
   else
   {
     Serial.println("Connected to WiFi.");
+    WiFi.setAutoReconnect(true);
+    WiFi.persistent(true);
   }
 
   // Get current time from time server
@@ -150,6 +159,46 @@ void setup()
 
 void loop()
 {
+  esp_task_wdt_reset();
+
+  // Active Wi-Fi check & automatic reconnect
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.println("WiFi disconnected! Attempting reconnection...");
+    WiFi.reconnect();
+    unsigned long startAttempt = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttempt < 10000)
+    {
+      delay(500);
+      esp_task_wdt_reset();
+      Serial.print(".");
+    }
+    Serial.println();
+
+    if (WiFi.status() != WL_CONNECTED)
+    {
+      Serial.println("WiFi reconnection failed. Skipping network operations this cycle.");
+      delay(5000);
+      return;
+    }
+    else
+    {
+      Serial.println("WiFi reconnected successfully.");
+    }
+  }
+
+  // Scheduled daily restart at 04:00 AM to eliminate long-term heap fragmentation
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo))
+  {
+    if (timeinfo.tm_hour == 4 && timeinfo.tm_min == 0)
+    {
+      Serial.println("Performing scheduled daily maintenance restart...");
+      delay(1000);
+      ESP.restart();
+    }
+  }
+
   display.clearDisplay();        // Clear everytning that is inside frame buffer in ESP32
   printLocalTime(display, fonts, leftXpos, 100);
 
@@ -166,6 +215,8 @@ void loop()
   {
     drawDepartures(display, fonts, trainSiteId, TrainType, trainTitle, rightXpos, 385, trainLineWidth, false, row_height);
   }
+
+  esp_task_wdt_reset();
 
 #if MONOCHROME
   // For monochrome mode, always use partial display update to reduce flickering
@@ -185,7 +236,9 @@ void loop()
   framesDrawn = (++framesDrawn % 10);
 
   Serial.printf("Waiting for next update in %d seconds...\n", refreshInterval / 1000);
+  esp_task_wdt_reset();
   delay(refreshInterval);
+  esp_task_wdt_reset();
 }
 
 void printStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
