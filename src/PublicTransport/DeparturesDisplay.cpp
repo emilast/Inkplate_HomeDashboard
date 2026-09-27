@@ -6,7 +6,7 @@ const char *apiUrl = "https://transport.integration.sl.se/v1/sites/";
 
 const int rightMargin = 25; // right margin on screen
 
-void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, JsonDocument doc, const char *transportType, String title, int xpos, int startYpos, int lineBadgeWidth, bool useInformalTime, int row_height)
+void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, JsonDocument &doc, const char *transportType, String title, int xpos, int startYpos, int lineBadgeWidth, bool useInformalTime, int row_height)
 {
   int maxHeight = 320;
   int ypos = startYpos;
@@ -24,11 +24,11 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
 
   drawHeader(display, fonts.boldTextFont, title, xpos, ypos);
 
-  JsonArray departures = doc["departures"];
+  JsonArray departures = doc["departures"].as<JsonArray>();
   int rows = 0;
 
   // If no departures found, display a message
-  if (departures.size() == 0)
+  if (departures.isNull() || departures.size() == 0)
   {
     ypos += row_height;
     display.setCursor(xpos, ypos);
@@ -39,36 +39,45 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
 
   for (JsonObject departure : departures)
   {
-    const char *destination = departure["destination"];
-    const int direction = departure["direction_code"];
-    const char *displayTime = departure["display"]; // "17 min", "Now"
-    const char *scheduledArrival = departure["scheduled"];
-    const char *expectedArrival = departure["expected"];
-    const char *line = departure["line"]["designation"];
-    const char *transport_mode = departure["line"]["transport_mode"];
-    const char *state = departure["journey"]["state"];
+    if (departure.isNull()) continue;
 
-    if (strcmp(transport_mode, transportType) != 0)
+    const char *transport_mode = departure["line"]["transport_mode"] | "";
+    if (transport_mode == nullptr || transportType == nullptr || strcmp(transport_mode, transportType) != 0)
     {
       continue; // Skip this departure if transport_mode is not matching the transportType
     }
 
+    const char *destination = departure["destination"] | "Ok\xe4nd destination";
+    const int direction = departure["direction_code"] | 0;
+    const char *displayTime = departure["display"] | ""; // "17 min", "Now"
+    const char *scheduledArrival = departure["scheduled"] | "";
+    const char *expectedArrival = departure["expected"] | "";
+    const char *line = departure["line"]["designation"] | "";
+    const char *state = departure["journey"]["state"] | "";
+
     Serial.printf("Departure for %s: Line %s, %s, direction = %d\n", destination, line, displayTime, direction);
 
-    char isoDestination[strlen(destination) + 1];
-    utf8ToIso88591(destination, isoDestination);
+    char isoDestination[128];
+    utf8ToIso88591(destination, isoDestination, sizeof(isoDestination));
 
     // Example usage
-    int hour, minute;
+    int hour = -1, minute = -1;
     extractHourAndMinute(expectedArrival, hour, minute);
 
-    int scheduledHour, scheduledMinute;
+    int scheduledHour = -1, scheduledMinute = -1;
     extractHourAndMinute(scheduledArrival, scheduledHour, scheduledMinute);
 
     display.setCursor(xpos, ypos);
 
     char scheduledTimeBuffer[10];
-    snprintf(scheduledTimeBuffer, sizeof(scheduledTimeBuffer), "%02d:%02d", scheduledHour, scheduledMinute);
+    if (scheduledHour >= 0 && scheduledMinute >= 0)
+    {
+      snprintf(scheduledTimeBuffer, sizeof(scheduledTimeBuffer), "%02d:%02d", scheduledHour, scheduledMinute);
+    }
+    else
+    {
+      snprintf(scheduledTimeBuffer, sizeof(scheduledTimeBuffer), "--:--");
+    }
 
     char timeBuffer[100];
 
@@ -76,18 +85,20 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
     {
       snprintf(timeBuffer, sizeof(timeBuffer), "%s", displayTime);
     }
-    else
+    else if (hour >= 0 && minute >= 0)
     {
       snprintf(timeBuffer, sizeof(timeBuffer), "%02d:%02d", hour, minute);
     }
-
-    char buffer[100];
+    else
+    {
+      snprintf(timeBuffer, sizeof(timeBuffer), "%s", (displayTime && displayTime[0] != '\0') ? displayTime : "--:--");
+    }
 
     const int marginToOriginalTime = 25;
 
     ypos += row_height;
 
-    if (strcmp(state, "CANCELLED") == 0)
+    if (state != nullptr && strcmp(state, "CANCELLED") == 0)
     {
       // Cancelled departure
       drawInvertedString(display, fonts.normalTextFont, line, xpos, ypos, lineBadgeWidth);
@@ -98,7 +109,7 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
       drawRightString(display, fonts.normalTextFont, "INST\xc4LLD", rightPos - w - marginToOriginalTime, ypos, false);
       display.println();
     }
-    else if ((hour != scheduledHour || minute != scheduledMinute) && (abs((hour * 60 + minute) - (scheduledHour * 60 + scheduledMinute)) > 1))
+    else if (hour >= 0 && scheduledHour >= 0 && (hour != scheduledHour || minute != scheduledMinute) && (abs((hour * 60 + minute) - (scheduledHour * 60 + scheduledMinute)) > 1))
     {
       // Delayed departure (only if delay is more than 1 minute)
       drawInvertedString(display, fonts.normalTextFont, line, xpos, ypos, lineBadgeWidth);
@@ -121,26 +132,31 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
       display.println();
     }
 
-
     GFXfont deviationFont = fonts.smallTextFont;
 
     // Show deviation messages
-    JsonArray deviations = departure["deviations"];
-    for (JsonObject deviation : deviations)
+    JsonArray deviations = departure["deviations"].as<JsonArray>();
+    if (!deviations.isNull())
     {
-      const char *deviationMessage = deviation["message"];
-      char isoDeviationMessage[strlen(deviationMessage) + 1];
-      utf8ToIso88591(deviationMessage, isoDeviationMessage);
+      for (JsonObject deviation : deviations)
+      {
+        if (deviation.isNull()) continue;
+        const char *deviationMessage = deviation["message"] | "";
+        if (deviationMessage == nullptr || deviationMessage[0] == '\0') continue;
 
-      display.setFont(&deviationFont);
+        char isoDeviationMessage[256];
+        utf8ToIso88591(deviationMessage, isoDeviationMessage, sizeof(isoDeviationMessage));
 
-      ypos += deviationFont.yAdvance;
-      display.setCursor(xpos, ypos);
-      display.printf("-");
-      int linesDrawn = drawWrappedText(display, fonts.smallTextFont, isoDeviationMessage, xpos + 20, ypos, E_INK_WIDTH - xpos - 20 - rightMargin);
+        display.setFont(&deviationFont);
 
-      ypos += (linesDrawn - 1) * deviationFont.yAdvance;
-      rows += linesDrawn;
+        ypos += deviationFont.yAdvance;
+        display.setCursor(xpos, ypos);
+        display.printf("-");
+        int linesDrawn = drawWrappedText(display, fonts.smallTextFont, isoDeviationMessage, xpos + 20, ypos, E_INK_WIDTH - xpos - 20 - rightMargin);
+
+        ypos += (linesDrawn - 1) * deviationFont.yAdvance;
+        rows += linesDrawn;
+      }
     }
 
     // Limit the number of rows
@@ -156,21 +172,33 @@ bool drawDepartures(Inkplate &display, const FontCollection &fonts, const char *
   bool success = false;
   HTTPClient http;
   http.useHTTP10(false);
-  String requestUrl = String(apiUrl) + siteId + "/departures?transport=" + String(transportType) + "&nocache=" + String(random(1000, 9999));
+  char requestUrl[256];
+  snprintf(requestUrl, sizeof(requestUrl), "%s%s/departures?transport=%s&nocache=%u",
+           apiUrl, siteId, transportType, (unsigned int)random(1000, 9999));
   http.begin(requestUrl);
   int httpCode = http.GET();
-  if (httpCode > 0)
+  if (httpCode == HTTP_CODE_OK)
   {
     JsonDocument doc;
-    deserializeJson(doc, http.getStream());
-    parseAndDisplayDepartures(display, fonts, doc, transportType, title, xpos, startYpos, lineBadgeWidth, useInformalTime, row_height);
-    success = true;
+    DeserializationError error = deserializeJson(doc, http.getStream());
+    if (!error)
+    {
+      parseAndDisplayDepartures(display, fonts, doc, transportType, title, xpos, startYpos, lineBadgeWidth, useInformalTime, row_height);
+      success = true;
+    }
+    else
+    {
+      Serial.printf("JSON parse error for departures: %s\n", error.c_str());
+      display.setCursor(xpos, startYpos);
+      display.setFont(&fonts.normalTextFont);
+      display.println("JSON parse error");
+    }
   }
   else
   {
     // Show error message
     String response = http.getString();
-    Serial.println("Error on HTTP request: " + String(httpCode) + " " + requestUrl + " " + response);
+    Serial.println("Error on HTTP request: " + String(httpCode) + " " + String(requestUrl) + " " + response);
     display.setCursor(xpos, startYpos);
     display.setFont(&fonts.normalTextFont);
     display.print("Error on API call (");
