@@ -405,4 +405,64 @@ void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int y
     // ypos += row_height;
 
     drawTemperaturePrecipGraph(display, fonts, &weatherData, weatherData.currentTemp, xpos + 20, ypos, 350, 250);
+
+    drawDailyForecast(display, fonts, &weatherData, xpos, ypos + 270, 370);
+}
+
+void drawDailyForecast(Inkplate &display, const FontCollection &fonts, WeatherData *weatherData, int xpos, int ypos, int widgetWidth)
+{
+    if (!weatherData) return;
+    if (weatherData->dailyNames[0].length() == 0) return;
+
+    int numDays = FORECAST_DAYS;
+    int colWidth = widgetWidth / numDays;
+
+    // Top divider line below 24-hour diagram
+    display.drawLine(xpos + 5, ypos - 10, xpos + widgetWidth - 5, ypos - 10, _BLACK);
+
+    for (int d = 0; d < numDays; d++)
+    {
+        int colLeft = xpos + d * colWidth;
+        int colCenterX = colLeft + colWidth / 2;
+
+        // Subtle vertical separator between columns
+        if (d > 0)
+        {
+#if MONOCHROME
+            display.drawLine(colLeft, ypos - 4, colLeft, ypos + 115, _BLACK);
+#else
+            display.drawLine(colLeft, ypos - 4, colLeft, ypos + 115, _GRAY4);
+#endif
+        }
+
+        // 1. Day Name Header
+        // display.setFont(&fonts.boldTextFont);
+        display.setFont(&fonts.smallTextFont);
+        display.setTextColor(_BLACK, _WHITE);
+        int16_t x1, y1;
+        uint16_t w, h;
+        display.getTextBounds(weatherData->dailyNames[d].c_str(), 0, 0, &x1, &y1, &w, &h);
+        display.setCursor(colCenterX - (w / 2), ypos + 17);
+        display.print(weatherData->dailyNames[d]);
+
+        // 2. Weather Icon (48x48)
+        int iconX = colCenterX - 24;
+        int iconY = ypos + 20;
+        display.drawBitmap(iconX, iconY, getWeatherIcon(weatherData->dailyWeatherCodes[d]), 48, 48, _BLACK);
+
+        // 3. Min/Max Temperature
+        display.setFont(&fonts.smallTextFont);
+        char tempBuf[32];
+        snprintf(tempBuf, sizeof(tempBuf), "%.0f\xb0 / %.0f\xb0", weatherData->dailyMaxTemp[d], weatherData->dailyMinTemp[d]);
+        display.getTextBounds(tempBuf, 0, 0, &x1, &y1, &w, &h);
+        display.setCursor(colCenterX - (w / 2), iconY + 48 + 22);
+        display.print(tempBuf);
+
+        // 4. Daily Precipitation
+        char precipBuf[32];
+        snprintf(precipBuf, sizeof(precipBuf), "%.1f mm", weatherData->dailyPrecip[d]);
+        display.getTextBounds(precipBuf, 0, 0, &x1, &y1, &w, &h);
+        display.setCursor(colCenterX - (w / 2), iconY + 48 + 44);
+        display.print(precipBuf);
+    }
 }

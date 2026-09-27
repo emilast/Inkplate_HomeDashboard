@@ -52,13 +52,12 @@ String WeatherClient::extractSun(String dateTime) {
 
 // Function to get the current day of the week and return the next 7 days dynamically
 String WeatherClient::getDayName(int dayIndex) {
-  // Array of days, starting from Sunday (index 0)
-  String daysOfWeek[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+  static const char *daysOfWeek[] = {"S\xf6n", "M\xe5n", "Tis", "Ons", "Tor", "Fre", "L\xf6r"};
   
   // Get the current time
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) {
-      return "Error";  // Return error if time can't be fetched
+      return "---";  // Return error if time can't be fetched
   }
 
   // Get the current day index (0 = Sunday, 1 = Monday, etc.)
@@ -67,7 +66,7 @@ String WeatherClient::getDayName(int dayIndex) {
   // Calculate the day of the week for the given index
   int dayOfWeekIndex = (currentDay + dayIndex) % 7;
 
-  return daysOfWeek[dayOfWeekIndex];
+  return String(daysOfWeek[dayOfWeekIndex]);
 }
 
 
@@ -113,13 +112,28 @@ float feelsLikeC(float tempC, float humidity, float windSpeedMps) {
 }
 
 
+static inline time_t utcToEpoch(int year, int month, int day, int hour, int minute, int second) {
+    int y = year;
+    int m = month;
+    if (m <= 2) {
+        y -= 1;
+        m += 12;
+    }
+    int era = (y >= 0 ? y : y - 399) / 400;
+    unsigned yoe = static_cast<unsigned>(y - era * 400);
+    unsigned doy = (153 * (m - 3) + 2) / 5 + day - 1;
+    unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    int days = era * 146097 + static_cast<int>(doe) - 719468;
+    return (time_t)days * 86400 + hour * 3600 + minute * 60 + second;
+}
+
 // Function to fetch weather data from SMHI API (SNOW1gv1)
 void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* latitude, const float* longitude) {
     if (!weatherData || !latitude || !longitude) return;
 
     char url[320];
     snprintf(url, sizeof(url),
-             "https://opendata-download-metfcst.smhi.se/api/category/snow1g/version/1/geotype/point/lon/%.6f/lat/%.6f/data.json?parameters=air_temperature,wind_speed,precipitation_amount_max,precipitation_amount_min,symbol_code,relative_humidity&timeseries=24",
+             "https://opendata-download-metfcst.smhi.se/api/category/snow1g/version/1/geotype/point/lon/%.6f/lat/%.6f/data.json?parameters=air_temperature,wind_speed,precipitation_amount_max,precipitation_amount_min,symbol_code,relative_humidity&timeseries=96",
              *longitude, *latitude);
 
     Serial.printf("Fetching weather data from: %s\n", url);
@@ -211,7 +225,103 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
             weatherData->hourlyTimes[i] = extractSun(String(timeStr));
         }
 
-        // Note: Daily values not directly supported. You may need to compute these from hourly data.
+        // Initialize daily forecast aggregates
+        for (int d = 0; d < 7; d++) {
+            weatherData->dailyMinTemp[d] = 999.0f;
+            weatherData->dailyMaxTemp[d] = -999.0f;
+            weatherData->dailyPrecip[d] = 0.0f;
+            weatherData->dailyWeatherCodes[d] = 0;
+            weatherData->dailyNames[d] = "";
+        }
+
+        int bestSymbolHourDiff[FORECAST_DAYS];
+        for (int d = 0; d < FORECAST_DAYS; d++) {
+            bestSymbolHourDiff[d] = 999;
+        }
+
+        // Determine reference "today" date in local time
+        struct tm ref_today;
+        bool hasRefToday = getLocalTime(&ref_today);
+
+        for (int i = 0; i < dataCount; i++) {
+            const char *timeStr = timeSeries[i]["time"] | "";
+            if (strlen(timeStr) < 16) continue;
+
+            int yr = 0, mo = 0, dy = 0, hr = 0, mn = 0;
+            if (sscanf(timeStr, "%d-%d-%dT%d:%d", &yr, &mo, &dy, &hr, &mn) != 5) continue;
+
+            time_t utc_sec = utcToEpoch(yr, mo, dy, hr, mn, 0);
+            struct tm local_tm;
+            localtime_r(&utc_sec, &local_tm);
+
+            if (!hasRefToday && i == 0) {
+                ref_today = local_tm;
+                hasRefToday = true;
+            }
+
+            struct tm noon_entry = local_tm;
+            noon_entry.tm_hour = 12;
+            noon_entry.tm_min = 0;
+            noon_entry.tm_sec = 0;
+            time_t entry_noon_sec = mktime(&noon_entry);
+
+            struct tm noon_ref = ref_today;
+            noon_ref.tm_hour = 12;
+            noon_ref.tm_min = 0;
+            noon_ref.tm_sec = 0;
+            time_t ref_noon_sec = mktime(&noon_ref);
+
+            int daysAhead = (int)round((difftime(entry_noon_sec, ref_noon_sec)) / 86400.0);
+
+            if (daysAhead >= 1 && daysAhead <= FORECAST_DAYS) {
+                int d = daysAhead - 1;
+                JsonObject entryData = timeSeries[i]["data"];
+                if (!entryData.isNull()) {
+                    if (entryData["air_temperature"].is<float>()) {
+                        float t = entryData["air_temperature"].as<float>();
+                        if (t < weatherData->dailyMinTemp[d]) weatherData->dailyMinTemp[d] = t;
+                        if (t > weatherData->dailyMaxTemp[d]) weatherData->dailyMaxTemp[d] = t;
+                    }
+                    if (entryData["precipitation_amount_max"].is<float>()) {
+                        weatherData->dailyPrecip[d] += entryData["precipitation_amount_max"].as<float>();
+                    }
+                    if (entryData["symbol_code"].is<int>()) {
+                        int sym = entryData["symbol_code"].as<int>();
+                        int hourDiff = abs(local_tm.tm_hour - 13);
+                        if (hourDiff < bestSymbolHourDiff[d]) {
+                            bestSymbolHourDiff[d] = hourDiff;
+                            weatherData->dailyWeatherCodes[d] = sym;
+                        }
+                    }
+                }
+            }
+        }
+
+        static const char *swedishDays[7] = {
+            "S\xf6n", // Söndag (0)
+            "M\xe5n", // Måndag (1)
+            "Tis",    // Tisdag (2)
+            "Ons",    // Onsdag (3)
+            "Tor",    // Torsdag (4)
+            "Fre",    // Fredag (5)
+            "L\xf6r"  // Lördag (6)
+        };
+
+        for (int d = 0; d < FORECAST_DAYS; d++) {
+            int target_wday = (ref_today.tm_wday + (d + 1)) % 7;
+            weatherData->dailyNames[d] = swedishDays[target_wday];
+            if (weatherData->dailyMinTemp[d] == 999.0f) {
+                weatherData->dailyMinTemp[d] = 0.0f;
+                weatherData->dailyMaxTemp[d] = 0.0f;
+            }
+            if (weatherData->dailyWeatherCodes[d] == 0) {
+                weatherData->dailyWeatherCodes[d] = 1;
+            }
+            Serial.printf("Day %d (%s): Min=%.1f, Max=%.1f, Precip=%.1f, Symbol=%d\n",
+                          d + 1, weatherData->dailyNames[d].c_str(),
+                          weatherData->dailyMinTemp[d], weatherData->dailyMaxTemp[d],
+                          weatherData->dailyPrecip[d], weatherData->dailyWeatherCodes[d]);
+        }
 
     } else {
         Serial.printf("HTTP Error: %d\n", httpCode);
