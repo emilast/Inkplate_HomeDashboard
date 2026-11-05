@@ -4,6 +4,7 @@
 #include <Arduino.h>
 
 #define GRAPH_HOURS 24
+#define FORECAST_DAYS 3
 
 class WeatherData {
 public:
@@ -21,6 +22,7 @@ public:
     String weatherDescription;
     int weatherCode;
     int dailyWeatherCodes[7];
+    float dailyPrecip[7];
     bool isDay;
     float hourlyTemps[GRAPH_HOURS];
     float hourlyPrecipMin[GRAPH_HOURS];

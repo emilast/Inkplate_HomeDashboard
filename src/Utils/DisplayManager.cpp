@@ -73,24 +73,39 @@ int drawWrappedText(Inkplate &display, const GFXfont &font, const String &text, 
     int16_t cursor_y = y;
     int i = 0;
     while (i < text.length()) {
-        int spaceIndex = text.indexOf(' ', i);
-        if (spaceIndex == -1)
-            spaceIndex = text.length();
-        String word = text.substring(i, spaceIndex);
+        // Handle whitespace and explicit newlines
+        while (i < text.length() && (text[i] == ' ' || text[i] == '\t' || text[i] == '\r' || text[i] == '\n')) {
+            if (text[i] == '\n' && line.length() > 0) {
+                display.setCursor(x, cursor_y);
+                display.print(line);
+                cursor_y += font.yAdvance;
+                line = "";
+                linesDrawn++;
+            }
+            i++;
+        }
+        if (i >= text.length()) break;
+
+        // Find end of current word
+        int nextSpace = i;
+        while (nextSpace < text.length() && text[nextSpace] != ' ' && text[nextSpace] != '\t' && text[nextSpace] != '\r' && text[nextSpace] != '\n') {
+            nextSpace++;
+        }
+        String word = text.substring(i, nextSpace);
         String testLine = line + (line.length() > 0 ? " " : "") + word;
         int16_t x1, y1;
         uint16_t w, h;
-        display.getTextBounds(testLine, 0, 0, &x1, &y1, &w, &h);
+        display.getTextBounds(testLine.c_str(), 0, 0, &x1, &y1, &w, &h);
         if (w > maxWidth && line.length() > 0) {
             display.setCursor(x, cursor_y);
             display.print(line);
-            cursor_y += h;
+            cursor_y += font.yAdvance;
             line = word;
             linesDrawn++;
         } else {
             line = testLine;
         }
-        i = spaceIndex + 1;
+        i = nextSpace;
     }
     if (line.length() > 0) {
         display.setCursor(x, cursor_y);

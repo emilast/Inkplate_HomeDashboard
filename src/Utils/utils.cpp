@@ -4,10 +4,19 @@
 // Parameters:
 //   utf8 - Input string in UTF-8 encoding.
 //   iso - Output buffer for the ISO-8859-1 encoded string.
-void utf8ToIso88591(const char *utf8, char *iso) {
-    int i = 0, j = 0;
+//   maxIsoLen - Size of the output buffer (0 for unlimited / legacy mode).
+void utf8ToIso88591(const char *utf8, char *iso, size_t maxIsoLen) {
+    if (!utf8 || !iso) {
+        if (iso && maxIsoLen > 0) *iso = '\0';
+        return;
+    }
+    if (maxIsoLen == 1) {
+        *iso = '\0';
+        return;
+    }
+    size_t i = 0, j = 0;
 
-    while (utf8[i]) {
+    while (utf8[i] && (maxIsoLen == 0 || j + 1 < maxIsoLen)) {
         unsigned char c = utf8[i];
 
         if (c < 128) {
@@ -16,6 +25,7 @@ void utf8ToIso88591(const char *utf8, char *iso) {
             i++;
         } else if ((c & 0xE0) == 0xC0) {
             // 2-byte UTF-8 sequence (common for Latin-1 characters)
+            if (!utf8[i + 1]) break;
             unsigned char c2 = utf8[i + 1];
 
             if ((c == 0xC3) && (c2 >= 0x80 && c2 <= 0xBF)) {
@@ -42,7 +52,7 @@ void utf8ToIso88591(const char *utf8, char *iso) {
 //   hour - Reference to an integer to store the extracted hour.
 //   minute - Reference to an integer to store the extracted minute.
 void extractHourAndMinute(const char *timestamp, int &hour, int &minute) {
-    if (strlen(timestamp) >= 16) {                                  // Ensure the string is long enough
+    if (timestamp != nullptr && strlen(timestamp) >= 16) {           // Ensure the string is valid and long enough
         hour = (timestamp[11] - '0') * 10 + (timestamp[12] - '0');    // Extract hour
         minute = (timestamp[14] - '0') * 10 + (timestamp[15] - '0');  // Extract minute
     } else {
