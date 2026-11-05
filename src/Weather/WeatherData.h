@@ -11,9 +11,6 @@ public:
     // Member variables
     float currentTemp;
     float feelsLike;
-    String sunrise;
-    String sunset;
-    float uvIndex;
     float precipitation;
     float windSpeed;
     float dailyMinTemp[FORECAST_DAYS];
@@ -25,7 +22,6 @@ public:
     float dailyPrecipMin[FORECAST_DAYS]; // sum of hourly minimum precipitation
     float dailyPrecip[FORECAST_DAYS];    // sum of hourly maximum precipitation
     bool dailyHasData[FORECAST_DAYS];
-    bool isDay;
     float hourlyTemps[GRAPH_HOURS];
     float hourlyPrecipMin[GRAPH_HOURS];
     float hourlyPrecip[GRAPH_HOURS];

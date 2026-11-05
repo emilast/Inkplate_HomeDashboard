@@ -42,36 +42,6 @@ switch (code) {
     }
 }
 
-// Function to get the current day of the week and return the next 7 days dynamically
-String WeatherClient::getDayName(int dayIndex) {
-  static const char *daysOfWeek[] = {"S\xf6n", "M\xe5n", "Tis", "Ons", "Tor", "Fre", "L\xf6r"};
-  
-  // Get the current time
-  struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) {
-      return "---";  // Return error if time can't be fetched
-  }
-
-  // Get the current day index (0 = Sunday, 1 = Monday, etc.)
-  int currentDay = timeinfo.tm_wday;
-
-  // Calculate the day of the week for the given index
-  int dayOfWeekIndex = (currentDay + dayIndex) % 7;
-
-  return String(daysOfWeek[dayOfWeekIndex]);
-}
-
-
-int getCurrentHour() {
-  struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) {
-      return -1;  // Return -1 if time is not available (error)
-  }
-
-  return timeinfo.tm_hour;
-}
-
-
 float windChill(float tempC, float windSpeedKph) {
     return 13.12 + 0.6215 * tempC - 11.37 * pow(windSpeedKph, 0.16) + 0.3965 * tempC * pow(windSpeedKph, 0.16);
 }
@@ -207,12 +177,6 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
                 weatherData->feelsLike = feelsLikeC(weatherData->currentTemp, 0.0f, weatherData->windSpeed);
             }
         }
-
-        // Set default values for sunrise/sunset
-        weatherData->sunrise = "06:00";
-        weatherData->sunset = "18:00";
-        weatherData->uvIndex = -1;  // Not provided
-        weatherData->isDay = true;
 
         // Fill in forecast graph values (next GRAPH_HOURS hours)
         for (int i = 0; i < GRAPH_HOURS && (forecastIndex + i) < dataCount; i++) {

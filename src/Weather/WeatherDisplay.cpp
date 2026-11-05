@@ -4,7 +4,6 @@
 #include "../Utils/DisplayManager.h"
 #include "WeatherClient.h"
 
-#include "icons/tempSymbol.h" // Include .h file that contains byte array for temperature symbol.
 #include "icons/icon_s_clear_sky.h"
 #include "icons/icon_s_partly_cloudy.h"
 #include "icons/icon_s_gray.h"
@@ -66,16 +65,6 @@ const uint8_t *getWeatherIcon(int code)
     }
 }
 
-void drawTemperature(Inkplate &display, int xpos, int ypos)
-{
-    int temperature = display.readTemperature();
-    display.drawImage(tempSymbol, xpos, ypos, 38, 79, _BLACK);
-    display.setCursor(xpos + 55, ypos + 50);
-    display.print(temperature, DEC);
-    display.print("\xb0"
-                  "C");
-}
-
 int getTemperatureGraphY(float temperature, float paddedTempMin, float paddedTempMax, int chartBottom, int graphHeight, int marginY)
 {
     float tempRange = paddedTempMax - paddedTempMin;
@@ -112,11 +101,6 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
 
     display.setFont(&fonts.smallTextFont); // Set the font
 
-    // display.setCursor(graphX-35, graphY+5);
-    // // display.setFont(&FreeSans12pt7b);
-    // display.setTextColor(BLACK);
-    // display.print("Hourly temperature and precipitation");
-
     int marginX = 40;
     int marginY = 40;
     int chartLeft = graphX + marginX;
@@ -152,8 +136,7 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
         tempRange = 1; // Avoid division by zero
     float xStep = (graphWidth - 2 * marginX) / (GRAPH_HOURS - 1.0);
 
-    // Calculate Y positions for min, and max temperatures
-    int yMin = chartBottom - ((paddedTempMin - paddedTempMin) / tempRange) * (graphHeight - 2 * marginY);
+    // Calculate Y position for the max temperature
     int yMax = chartBottom - ((paddedTempMax - paddedTempMin) / tempRange) * (graphHeight - 2 * marginY);
 
     // Draw axes
@@ -216,8 +199,6 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
     // Draw precipitation bars
     for (int i = 0; i < GRAPH_HOURS - 1; i++) // -1 to avoid out of bounds access, will render one bar too few but that's okay
     {
-        // weatherData->hourlyPrecip[i] = random(0, 100);
-
         if (weatherData->hourlyPrecip[i] == 0)
             continue; // Skip drawing bars for zero precipitation
 
@@ -274,7 +255,6 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
         int x1 = chartLeft + i * xStep;
         int x2 = chartLeft + (i + 1) * xStep;
 
-        // int y1 = chartBottom - ((weatherData->hourlyTemps[i] - paddedTempMin) / tempRange) * (graphHeight - 2 * marginY);
         int y1 = getTemperatureGraphY(weatherData->hourlyTemps[i], paddedTempMin, paddedTempMax, chartBottom, graphHeight, marginY);
         int y2 = getTemperatureGraphY(weatherData->hourlyTemps[i + 1], paddedTempMin, paddedTempMax, chartBottom, graphHeight, marginY);
 
@@ -283,7 +263,6 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
         {
             display.drawLine(x1, y1 + offset, x2, y2 + offset, _BLACK);
         }
-        // display.drawThickLine(x1, y1, x2, y2, _BLACK, 3);
     }
 
     // Time labels under X-axis
@@ -307,12 +286,6 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
         {
             display.drawLine(x, chartTop, x, chartBottom, _BLACK); // Y-axis
         }
-
-        // Show time labels
-        // if (i % 6 == 0) {
-        //   display.setCursor(x + 3, chartBottom + 20);
-        //   display.print(weatherData->hourlyTimes[i]);
-        // }
     }
 }
 
@@ -348,21 +321,11 @@ void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int y
 
     ypos += 20; // Add some space before the next row
 
-    // UV index missing from SMHI API
-    // display.setCursor(xpos, ypos);
-    // display.print("UV Index:");
-    // display.setCursor(xpos + label_width, ypos);
-    // display.println(weatherData.uvIndex);
-
-    // ypos += row_height;
-
     display.setCursor(xpos, ypos);
     display.print("Vind:");
     display.setCursor(xpos + label_width, ypos);
-    display.print(weatherData.windSpeed, 1); // Divide by 3.6 if value is in km/h
+    display.print(weatherData.windSpeed, 1);
     display.println("m/s");
-
-    // ypos += row_height;
 
     // Fit the graph and the daily forecast into the space left on the panel.
     // The Inkplate 10 (825 px) has room for the full-size graph, the Inkplate 5 V2
@@ -415,7 +378,6 @@ void drawDailyForecast(Inkplate &display, const FontCollection &fonts, WeatherDa
         }
 
         // 1. Day Name Header
-        // display.setFont(&fonts.boldTextFont);
         display.setFont(&fonts.smallTextFont);
         display.setTextColor(_BLACK, _WHITE);
         int16_t x1, y1;

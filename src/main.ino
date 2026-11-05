@@ -84,7 +84,6 @@ static const FontCollection fonts = {
 
 // Time config
 const char *ntpServer = "pool.ntp.org";
-const int jsonBufferSize = 8192;
 
 // Trafiklab API details
 const char *busSiteId = "7083";

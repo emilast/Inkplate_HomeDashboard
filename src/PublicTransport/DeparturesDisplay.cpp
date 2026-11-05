@@ -37,7 +37,6 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
   drawHeader(display, fonts.boldTextFont, title, xpos, ypos);
 
   JsonArray departures = doc["departures"].as<JsonArray>();
-  int rows = 0;
 
   // If no departures found, display a message
   if (departures.isNull() || departures.size() == 0)
@@ -54,7 +53,7 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
     if (departure.isNull()) continue;
 
     const char *transport_mode = departure["line"]["transport_mode"] | "";
-    if (transport_mode == nullptr || transportType == nullptr || strcmp(transport_mode, transportType) != 0)
+    if (transportType == nullptr || strcmp(transport_mode, transportType) != 0)
     {
       continue; // Skip this departure if transport_mode is not matching the transportType
     }
@@ -72,7 +71,6 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
     char isoDestination[128];
     utf8ToIso88591(destination, isoDestination, sizeof(isoDestination));
 
-    // Example usage
     int hour = -1, minute = -1;
     extractHourAndMinute(expectedArrival, hour, minute);
 
@@ -103,14 +101,14 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
     }
     else
     {
-      snprintf(timeBuffer, sizeof(timeBuffer), "%s", (displayTime && displayTime[0] != '\0') ? displayTime : "--:--");
+      snprintf(timeBuffer, sizeof(timeBuffer), "%s", displayTime[0] != '\0' ? displayTime : "--:--");
     }
 
     const int marginToOriginalTime = 25;
 
     ypos += row_height;
 
-    if (state != nullptr && strcmp(state, "CANCELLED") == 0)
+    if (strcmp(state, "CANCELLED") == 0)
     {
       // Cancelled departure
       drawInvertedString(display, fonts.normalTextFont, line, xpos, ypos, lineBadgeWidth);
@@ -144,7 +142,7 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
       display.println();
     }
 
-    GFXfont deviationFont = fonts.smallTextFont;
+    const GFXfont &deviationFont = fonts.smallTextFont;
 
     // Show deviation messages
     JsonArray deviations = departure["deviations"].as<JsonArray>();
@@ -154,7 +152,7 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
       {
         if (deviation.isNull()) continue;
         const char *deviationMessage = deviation["message"] | "";
-        if (deviationMessage == nullptr || deviationMessage[0] == '\0') continue;
+        if (deviationMessage[0] == '\0') continue;
 
         char isoDeviationMessage[256];
         utf8ToIso88591(deviationMessage, isoDeviationMessage, sizeof(isoDeviationMessage));
@@ -167,7 +165,6 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
         int linesDrawn = drawWrappedText(display, fonts.smallTextFont, isoDeviationMessage, xpos + 20, ypos, E_INK_WIDTH - xpos - 20 - rightMargin);
 
         ypos += (linesDrawn - 1) * deviationFont.yAdvance;
-        rows += linesDrawn;
       }
     }
 

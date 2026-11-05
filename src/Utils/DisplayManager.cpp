@@ -1,39 +1,10 @@
 #include "DisplayManager.h"
 
-void initializeDisplay(Inkplate &display, const GFXfont &font)
-{
-    display.begin();
-    display.setFont(&font);
-    display.clearDisplay();
-    display.display();
-    display.setTextSize(1);
-    display.setTextColor(_BLACK, _WHITE);
-    display.setTextWrap(false);
-}
-
-void clearAndPrepareDisplay(Inkplate &display)
-{
-    display.clearDisplay();
-}
-
 void drawHeader(Inkplate &display, const GFXfont &font, String text, int xpos, int ypos)
 {
     display.setCursor(xpos, ypos);
     display.setFont(&font);
     display.print(text);
-    display.setFont(&font);
-}
-
-int drawStrikethrough(Inkplate &display, const GFXfont &font, char *text, int xpos, int ypos)
-{
-    display.setFont(&font);
-    display.setCursor(xpos, ypos);
-    display.print(text);
-    int16_t x1, y1;
-    uint16_t w, h;
-    display.getTextBounds(text, xpos, ypos, &x1, &y1, &w, &h);
-    display.fillRect(xpos, ypos - (h / 2), w, 3, _BLACK);
-    return w;
 }
 
 int drawRightString(Inkplate &display, const GFXfont &font, const char *buf, int x, int y, bool strikethrough)
