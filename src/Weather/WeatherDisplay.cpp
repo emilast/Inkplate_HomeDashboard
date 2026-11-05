@@ -364,9 +364,28 @@ void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int y
 
     // ypos += row_height;
 
-    drawTemperaturePrecipGraph(display, fonts, &weatherData, weatherData.currentTemp, xpos + 20, ypos, 350, 250);
+    // Fit the graph and the daily forecast into the space left on the panel.
+    // The Inkplate 10 (825 px) has room for the full-size graph, the Inkplate 5 V2
+    // (720 px) needs a shorter one. If even a minimal graph leaves no room, the
+    // daily forecast is left out rather than drawn off-screen.
+    const int maxGraphHeight = 250;
+    const int minGraphHeight = 150;
+    const int graphToForecastGap = 20;
+    const int forecastHeight = 120;
+    const int bottomMargin = 5;
 
-    drawDailyForecast(display, fonts, &weatherData, xpos, ypos + 270, 370);
+    int spaceLeft = E_INK_HEIGHT - bottomMargin - ypos;
+    bool showForecast = spaceLeft - graphToForecastGap - forecastHeight >= minGraphHeight;
+    int graphHeight = showForecast ? spaceLeft - graphToForecastGap - forecastHeight : spaceLeft;
+    if (graphHeight > maxGraphHeight)
+        graphHeight = maxGraphHeight;
+
+    drawTemperaturePrecipGraph(display, fonts, &weatherData, weatherData.currentTemp, xpos + 20, ypos, 350, graphHeight);
+
+    if (showForecast)
+    {
+        drawDailyForecast(display, fonts, &weatherData, xpos, ypos + graphHeight + graphToForecastGap, 370);
+    }
 }
 
 void drawDailyForecast(Inkplate &display, const FontCollection &fonts, WeatherData *weatherData, int xpos, int ypos, int widgetWidth)
