@@ -1,7 +1,7 @@
 #pragma once
 
-// 0 => 1 bit display, black/white + partial display updates
-// 1 => 3 bit display, 8 colors (black, white and 6 grays)
+// 1 => 1 bit display, black/white + partial display updates
+// 0 => 3 bit display, 8 colors (black, white and 6 grays), full refresh on every update
 #define MONOCHROME 0
 
 #if MONOCHROME
