@@ -25,6 +25,7 @@
 #include <esp_task_wdt.h>
 
 #define WDT_TIMEOUT_SECONDS 60
+#define MIN_UPTIME_BEFORE_RESTART_MS (10UL * 60UL * 1000UL)
 
 #include "constants.h"
 
@@ -111,10 +112,6 @@ void setup()
 {
   Serial.begin(115200);
 
-  // Initialize Hardware / Task Watchdog Timer
-  esp_task_wdt_init(WDT_TIMEOUT_SECONDS, true);
-  esp_task_wdt_add(NULL);
-
   // display.changeWaveform(INKPLATE10_WAVEFORM1);
 
   display.begin();        // Init library (you should call this function ONLY ONCE)
@@ -136,6 +133,7 @@ void setup()
   wm.setCleanConnect(true);
   wm.setConnectTimeout(30); // seconds to try reconnecting
   wm.setConnectRetries(5);  // retries before giving up
+  wm.setConfigPortalTimeout(300); // give up on the setup portal after 5 minutes and retry from loop()
 
   bool res = wm.autoConnect(networkName);
   if (!res)
@@ -148,6 +146,11 @@ void setup()
     WiFi.setAutoReconnect(true);
     WiFi.persistent(true);
   }
+
+  // Start the Task Watchdog only after WiFiManager is done: autoConnect() and the
+  // configuration portal can block for minutes without feeding the watchdog.
+  esp_task_wdt_init(WDT_TIMEOUT_SECONDS, true);
+  esp_task_wdt_add(NULL);
 
   // Get current time from time server
   configTime(0, 0, ntpServer);
@@ -187,9 +190,11 @@ void loop()
     }
   }
 
-  // Scheduled daily restart at 04:00 AM to eliminate long-term heap fragmentation
+  // Scheduled daily restart at 04:00 AM to eliminate long-term heap fragmentation.
+  // The uptime check keeps the board from restarting again when it comes back up
+  // while the clock still shows 04:00.
   struct tm timeinfo;
-  if (getLocalTime(&timeinfo))
+  if (millis() > MIN_UPTIME_BEFORE_RESTART_MS && getLocalTime(&timeinfo))
   {
     if (timeinfo.tm_hour == 4 && timeinfo.tm_min == 0)
     {

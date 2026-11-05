@@ -6,6 +6,18 @@ const char *apiUrl = "https://transport.integration.sl.se/v1/sites/";
 
 const int rightMargin = 25; // right margin on screen
 
+// Signed difference in minutes from (h1:m1) to (h2:m2), assuming the two times are
+// less than 12 hours apart. Handles midnight wrap-around, e.g. 23:59 -> 00:01 = +2.
+static int minutesBetween(int h1, int m1, int h2, int m2)
+{
+  int diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+  if (diff < -720)
+    diff += 1440;
+  else if (diff > 720)
+    diff -= 1440;
+  return diff;
+}
+
 void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, JsonDocument &doc, const char *transportType, String title, int xpos, int startYpos, int lineBadgeWidth, bool useInformalTime, int row_height)
 {
   int maxHeight = 320;
@@ -109,7 +121,7 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
       drawRightString(display, fonts.normalTextFont, "INST\xc4LLD", rightPos - w - marginToOriginalTime, ypos, false);
       display.println();
     }
-    else if (hour >= 0 && scheduledHour >= 0 && (hour != scheduledHour || minute != scheduledMinute) && (abs((hour * 60 + minute) - (scheduledHour * 60 + scheduledMinute)) > 1))
+    else if (hour >= 0 && scheduledHour >= 0 && abs(minutesBetween(scheduledHour, scheduledMinute, hour, minute)) > 1)
     {
       // Delayed departure (only if delay is more than 1 minute)
       drawInvertedString(display, fonts.normalTextFont, line, xpos, ypos, lineBadgeWidth);
@@ -171,7 +183,7 @@ bool drawDepartures(Inkplate &display, const FontCollection &fonts, const char *
 {
   bool success = false;
   HTTPClient http;
-  http.useHTTP10(false);
+  http.useHTTP10(true); // Disable chunked transfer encoding, required when parsing from getStream()
   char requestUrl[256];
   snprintf(requestUrl, sizeof(requestUrl), "%s%s/departures?transport=%s&nocache=%u",
            apiUrl, siteId, transportType, (unsigned int)random(1000, 9999));

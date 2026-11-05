@@ -38,7 +38,7 @@ switch (code) {
         case 25: return String("L\xE4""tt sn\xF6""fall"); // Light snowfall
         case 26: return String("M\xE5""ttligt sn\xF6""fall"); // Moderate snowfall
         case 27: return String("Kraftigt sn\xF6""fall"); // Heavy snowfall
-        default: return String("Ok\xE4""nd v\xE4""dertyp: " + code); // Unknown weather type
+        default: return String("Ok\xE4""nd v\xE4""dertyp: ") + code; // Unknown weather type
     }
 }
 
