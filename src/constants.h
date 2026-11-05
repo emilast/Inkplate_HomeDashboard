@@ -1,8 +1,6 @@
 #pragma once
 
-// 1 => 1 bit display, black/white + partial display updates
-// 0 => 3 bit display, 8 colors (black, white and 6 grays), full refresh on every update
-#define MONOCHROME 0
+#include "config.h" // MONOCHROME
 
 #if MONOCHROME
     // Use the same definitions as in Inkplate library for black and white mode

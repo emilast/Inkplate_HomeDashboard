@@ -13,10 +13,6 @@
 #include "icons/icon_s_storm.h"
 #include "icons/icon_s_thermometer.h"
 
-// Latitude and longitude of the position to show weather for
-float latitude = 59.255798826517136;
-float longitude = 17.98211146904839;
-
 // Weather
 WeatherClient weatherClient;
 WeatherData weatherData;
@@ -293,7 +289,7 @@ void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int y
 {
     if (framesDrawn == 0)
     {
-        weatherClient.fetchWeatherData(&weatherData, &latitude, &longitude);
+        weatherClient.fetchWeatherData(&weatherData, &WEATHER_LATITUDE, &WEATHER_LONGITUDE);
     }
 
     const int label_width = 225;

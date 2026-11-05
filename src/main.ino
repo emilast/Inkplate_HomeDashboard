@@ -24,12 +24,10 @@
 #include <WiFiManager.h>
 #include <esp_task_wdt.h>
 
-#define WDT_TIMEOUT_SECONDS 60
-#define MIN_UPTIME_BEFORE_RESTART_MS (10UL * 60UL * 1000UL)
-
+#include "config.h"
 #include "constants.h"
 
-#if MONOCHROME // Defined in contants.h
+#if MONOCHROME // Defined in config.h
   #define DISPLAY_MODE INKPLATE_1BIT
 #else
   #define DISPLAY_MODE INKPLATE_3BIT
@@ -82,16 +80,7 @@ static const FontCollection fonts = {
 #error "Wrong board selection!"
 #endif
 
-// Time config
-const char *ntpServer = "pool.ntp.org";
-
-// Trafiklab API details
-const char *busSiteId = "7083";
-const char *busTitle = "Buss fr\xe5n Sn\xe4ttringe";
-
-const char *trainSiteId = "9528";
-const char *trainTitle = "T\xe5g fr\xe5n Stuvsta";
-
+// Trafiklab transport modes
 const char *TrainType = "TRAIN";
 const char *BusType = "BUS";
 
@@ -104,7 +93,6 @@ const int row_height = 50;
 const int busLineWidth = 80;
 const int trainLineWidth = 60;
 
-const int refreshInterval = 20000;
 int framesDrawn = 0;
 
 void setup()
@@ -152,10 +140,10 @@ void setup()
   esp_task_wdt_add(NULL);
 
   // Get current time from time server
-  configTime(0, 0, ntpServer);
+  configTime(0, 0, NTP_SERVER);
 
-  // Set timezone to CEST (Central European Summer Time)
-  setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+  // Set the local time zone (see TIME_ZONE in config.h)
+  setenv("TZ", TIME_ZONE, 1);
   tzset();
 }
 
@@ -189,13 +177,13 @@ void loop()
     }
   }
 
-  // Scheduled daily restart at 04:00 AM to eliminate long-term heap fragmentation.
+  // Scheduled daily restart (04:00 by default) to eliminate long-term heap fragmentation.
   // The uptime check keeps the board from restarting again when it comes back up
-  // while the clock still shows 04:00.
+  // while the clock still shows the restart time.
   struct tm timeinfo;
   if (millis() > MIN_UPTIME_BEFORE_RESTART_MS && getLocalTime(&timeinfo))
   {
-    if (timeinfo.tm_hour == 4 && timeinfo.tm_min == 0)
+    if (timeinfo.tm_hour == DAILY_RESTART_HOUR && timeinfo.tm_min == 0)
     {
       Serial.println("Performing scheduled daily maintenance restart...");
       delay(1000);
@@ -209,15 +197,15 @@ void loop()
   drawWeather(display, fonts, leftXpos, 180, row_height, framesDrawn);
 
   Serial.println("Bus information from API...");
-  if (!drawDepartures(display, fonts, busSiteId, BusType, busTitle, rightXpos, 65, busLineWidth, true, row_height))
+  if (!drawDepartures(display, fonts, BUS_SITE_ID, BusType, BUS_TITLE, rightXpos, 65, busLineWidth, true, row_height))
   {
-    drawDepartures(display, fonts, busSiteId, BusType, busTitle, rightXpos, 65, busLineWidth, true, row_height);
+    drawDepartures(display, fonts, BUS_SITE_ID, BusType, BUS_TITLE, rightXpos, 65, busLineWidth, true, row_height);
   }
 
   Serial.println("Train information from API...");
-  if (!drawDepartures(display, fonts, trainSiteId, TrainType, trainTitle, rightXpos, 385, trainLineWidth, false, row_height))
+  if (!drawDepartures(display, fonts, TRAIN_SITE_ID, TrainType, TRAIN_TITLE, rightXpos, 385, trainLineWidth, false, row_height))
   {
-    drawDepartures(display, fonts, trainSiteId, TrainType, trainTitle, rightXpos, 385, trainLineWidth, false, row_height);
+    drawDepartures(display, fonts, TRAIN_SITE_ID, TrainType, TRAIN_TITLE, rightXpos, 385, trainLineWidth, false, row_height);
   }
 
   esp_task_wdt_reset();
@@ -237,11 +225,11 @@ void loop()
   display.display();
 #endif
 
-  framesDrawn = (++framesDrawn % 10);
+  framesDrawn = (framesDrawn + 1) % FULL_REFRESH_EVERY_N_UPDATES;
 
-  Serial.printf("Waiting for next update in %d seconds...\n", refreshInterval / 1000);
+  Serial.printf("Waiting for next update in %d seconds...\n", REFRESH_INTERVAL_MS / 1000);
   esp_task_wdt_reset();
-  delay(refreshInterval);
+  delay(REFRESH_INTERVAL_MS);
   esp_task_wdt_reset();
 }
 
