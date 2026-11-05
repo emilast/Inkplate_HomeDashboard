@@ -159,6 +159,17 @@ static String utcTimestampToLocalHHMM(const char *timestamp)
     return String(buf);
 }
 
+// Seconds since the epoch at 12:00 local time on the same date as t. Comparing
+// noons keeps the day difference whole across DST changes.
+static time_t localNoon(struct tm t)
+{
+    t.tm_hour = 12;
+    t.tm_min = 0;
+    t.tm_sec = 0;
+    t.tm_isdst = -1;
+    return mktime(&t);
+}
+
 // Function to fetch weather data from SMHI API (SNOW1gv1)
 void WeatherClient::fetchWeatherData(WeatherData *weatherData, const float *latitude, const float *longitude)
 {
@@ -289,9 +300,11 @@ void WeatherClient::fetchWeatherData(WeatherData *weatherData, const float *lati
             bestSymbolHourDiff[d] = 999;
         }
 
-        // Determine reference "today" date in local time
-        struct tm refToday;
+        // Determine reference "today" date in local time. Falls back to the date of the
+        // first forecast entry if the clock isn't set yet.
+        struct tm refToday = {};
         bool hasRefToday = getLocalTime(&refToday);
+        time_t refNoonSec = hasRefToday ? localNoon(refToday) : 0;
 
         for (int i = 0; i < dataCount; i++)
         {
@@ -301,25 +314,14 @@ void WeatherClient::fetchWeatherData(WeatherData *weatherData, const float *lati
             struct tm localTm;
             if (!utcTimestampToLocalTime(timeStr, &localTm)) continue;
 
-            if (!hasRefToday && i == 0)
+            if (!hasRefToday)
             {
                 refToday = localTm;
+                refNoonSec = localNoon(refToday);
                 hasRefToday = true;
             }
 
-            struct tm noonEntry = localTm;
-            noonEntry.tm_hour = 12;
-            noonEntry.tm_min = 0;
-            noonEntry.tm_sec = 0;
-            time_t entryNoonSec = mktime(&noonEntry);
-
-            struct tm noonRef = refToday;
-            noonRef.tm_hour = 12;
-            noonRef.tm_min = 0;
-            noonRef.tm_sec = 0;
-            time_t refNoonSec = mktime(&noonRef);
-
-            int daysAhead = (int)round((difftime(entryNoonSec, refNoonSec)) / 86400.0);
+            int daysAhead = (int)round(difftime(localNoon(localTm), refNoonSec) / 86400.0);
 
             if (daysAhead >= 1 && daysAhead <= FORECAST_DAYS)
             {
@@ -370,6 +372,8 @@ void WeatherClient::fetchWeatherData(WeatherData *weatherData, const float *lati
 
         for (int d = 0; d < FORECAST_DAYS; d++)
         {
+            // refToday is zero-initialized (Sunday) if no time was available at all;
+            // those days then have no data and only show a dash.
             int targetWday = (refToday.tm_wday + (d + 1)) % 7;
             weatherData->dailyNames[d] = swedishDays[targetWday];
             // A day only counts as forecast if it got at least one temperature value
