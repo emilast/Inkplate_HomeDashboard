@@ -1,7 +1,7 @@
 #pragma once
 #include <Inkplate.h>
 #include "constants.h"
-#include "utils.h"
+#include "FontCollection.h"
 
 void drawHeader(Inkplate &display, const GFXfont &font, String text, int xpos, int ypos);
 int drawRightString(Inkplate &display, const GFXfont &font, const char *buf, int x, int y, bool strikethrough);

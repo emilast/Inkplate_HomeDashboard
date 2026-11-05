@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 #include "utils.h"
 // Returns the number of bytes in the UTF-8 sequence that starts with lead byte c,
@@ -140,4 +141,42 @@ void extractHourAndMinute(const char *timestamp, int &hour, int &minute)
         hour = -1;   // Invalid hour
         minute = -1; // Invalid minute
     }
+}
+
+int minutesBetween(int h1, int m1, int h2, int m2)
+{
+    int diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+    if (diff < -720)
+        diff += 1440;
+    else if (diff > 720)
+        diff -= 1440;
+    return diff;
+}
+
+time_t utcToEpoch(int year, int month, int day, int hour, int minute, int second)
+{
+    // Days from civil date, see https://howardhinnant.github.io/date_algorithms.html
+    int y = year;
+    int m = month;
+    if (m <= 2)
+    {
+        y -= 1;
+        m += 12;
+    }
+    int era = (y >= 0 ? y : y - 399) / 400;
+    unsigned yoe = static_cast<unsigned>(y - era * 400);
+    unsigned doy = (153 * (m - 3) + 2) / 5 + day - 1;
+    unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    int days = era * 146097 + static_cast<int>(doe) - 719468;
+    return (time_t)days * 86400 + hour * 3600 + minute * 60 + second;
+}
+
+bool utcTimestampToLocalTime(const char *timestamp, struct tm *localTime)
+{
+    int yr = 0, mo = 0, dy = 0, hr = 0, mn = 0;
+    if (!timestamp || !localTime || sscanf(timestamp, "%d-%d-%dT%d:%d", &yr, &mo, &dy, &hr, &mn) != 5)
+        return false;
+    time_t utcSec = utcToEpoch(yr, mo, dy, hr, mn, 0);
+    localtime_r(&utcSec, localTime);
+    return true;
 }

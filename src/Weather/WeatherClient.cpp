@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include "WeatherData.h"
+#include "../Utils/utils.h"
 
 #include <ArduinoJson.h>
 
@@ -146,35 +147,13 @@ float feelsLikeC(float tempC, float humidity, float windSpeedMps)
     }
 }
 
-static inline time_t utcToEpoch(int year, int month, int day, int hour, int minute, int second)
-{
-    int y = year;
-    int m = month;
-    if (m <= 2)
-    {
-        y -= 1;
-        m += 12;
-    }
-    int era = (y >= 0 ? y : y - 399) / 400;
-    unsigned yoe = static_cast<unsigned>(y - era * 400);
-    unsigned doy = (153 * (m - 3) + 2) / 5 + day - 1;
-    unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    int days = era * 146097 + static_cast<int>(doe) - 719468;
-    return (time_t)days * 86400 + hour * 3600 + minute * 60 + second;
-}
-
 // Converts an ISO 8601 UTC timestamp ("YYYY-MM-DDTHH:MM...") to local time as "HH:MM",
 // using the TZ set in setup(). Returns "??:??" if the timestamp can't be parsed.
 static String utcTimestampToLocalHHMM(const char *timestamp)
 {
-    int yr = 0, mo = 0, dy = 0, hr = 0, mn = 0;
-    if (!timestamp || sscanf(timestamp, "%d-%d-%dT%d:%d", &yr, &mo, &dy, &hr, &mn) != 5)
-    {
-        return "??:??";
-    }
-    time_t utcSec = utcToEpoch(yr, mo, dy, hr, mn, 0);
     struct tm localTm;
-    localtime_r(&utcSec, &localTm);
+    if (!utcTimestampToLocalTime(timestamp, &localTm))
+        return "??:??";
     char buf[6];
     snprintf(buf, sizeof(buf), "%02d:%02d", localTm.tm_hour, localTm.tm_min);
     return String(buf);
@@ -319,12 +298,8 @@ void WeatherClient::fetchWeatherData(WeatherData *weatherData, const float *lati
             const char *timeStr = timeSeries[i]["time"] | "";
             if (strlen(timeStr) < 16) continue;
 
-            int yr = 0, mo = 0, dy = 0, hr = 0, mn = 0;
-            if (sscanf(timeStr, "%d-%d-%dT%d:%d", &yr, &mo, &dy, &hr, &mn) != 5) continue;
-
-            time_t utcSec = utcToEpoch(yr, mo, dy, hr, mn, 0);
             struct tm localTm;
-            localtime_r(&utcSec, &localTm);
+            if (!utcTimestampToLocalTime(timeStr, &localTm)) continue;
 
             if (!hasRefToday && i == 0)
             {

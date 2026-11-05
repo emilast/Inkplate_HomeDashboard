@@ -23,7 +23,7 @@
 
 Inkplate display(DISPLAY_MODE); // 1-bit or 3-bit (grayscale) mode, see MONOCHROME in config.h
 
-#include "Utils/utils.h"
+#include "Utils/FontCollection.h"
 #include "Utils/DisplayManager.h"
 
 #include "Clock/TimeUtils.h"
