@@ -445,9 +445,19 @@ void drawDailyForecast(Inkplate &display, const FontCollection &fonts, WeatherDa
         display.setCursor(colCenterX - (w / 2), ypos + 17);
         display.print(weatherData->dailyNames[d]);
 
+        int iconY = ypos + 20;
+
+        if (!weatherData->dailyHasData[d])
+        {
+            // No forecast entries for this day: say so instead of showing made-up values
+            display.getTextBounds("-", 0, 0, &x1, &y1, &w, &h);
+            display.setCursor(colCenterX - (w / 2), iconY + 48);
+            display.print("-");
+            continue;
+        }
+
         // 2. Weather Icon (48x48)
         int iconX = colCenterX - 24;
-        int iconY = ypos + 20;
         display.drawBitmap(iconX, iconY, getWeatherIcon(weatherData->dailyWeatherCodes[d]), 48, 48, _BLACK);
 
         // 3. Min/Max Temperature
@@ -458,9 +468,17 @@ void drawDailyForecast(Inkplate &display, const FontCollection &fonts, WeatherDa
         display.setCursor(colCenterX - (w / 2), iconY + 48 + 22);
         display.print(tempBuf);
 
-        // 4. Daily Precipitation
+        // 4. Daily Precipitation, as a min-max range. Whole millimetres above 10 mm
+        // keep the text within the column.
         char precipBuf[32];
-        snprintf(precipBuf, sizeof(precipBuf), "%.1f mm", weatherData->dailyPrecip[d]);
+        float pMin = weatherData->dailyPrecipMin[d];
+        float pMax = weatherData->dailyPrecip[d];
+        if (pMax < 0.05f)
+            snprintf(precipBuf, sizeof(precipBuf), "0 mm");
+        else if (pMax >= 10.0f)
+            snprintf(precipBuf, sizeof(precipBuf), "%.0f-%.0f mm", pMin, pMax);
+        else
+            snprintf(precipBuf, sizeof(precipBuf), "%.1f-%.1f mm", pMin, pMax);
         display.getTextBounds(precipBuf, 0, 0, &x1, &y1, &w, &h);
         display.setCursor(colCenterX - (w / 2), iconY + 48 + 44);
         display.print(precipBuf);

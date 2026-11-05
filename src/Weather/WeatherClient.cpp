@@ -228,12 +228,14 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
         }
 
         // Initialize daily forecast aggregates
-        for (int d = 0; d < 7; d++) {
+        for (int d = 0; d < FORECAST_DAYS; d++) {
             weatherData->dailyMinTemp[d] = 999.0f;
             weatherData->dailyMaxTemp[d] = -999.0f;
+            weatherData->dailyPrecipMin[d] = 0.0f;
             weatherData->dailyPrecip[d] = 0.0f;
             weatherData->dailyWeatherCodes[d] = 0;
             weatherData->dailyNames[d] = "";
+            weatherData->dailyHasData[d] = false;
         }
 
         int bestSymbolHourDiff[FORECAST_DAYS];
@@ -284,6 +286,12 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
                         if (t < weatherData->dailyMinTemp[d]) weatherData->dailyMinTemp[d] = t;
                         if (t > weatherData->dailyMaxTemp[d]) weatherData->dailyMaxTemp[d] = t;
                     }
+                    // Summing the hourly min and max gives a range for the day, matching
+                    // the min - max label in the hourly graph. A sum of maximums alone
+                    // overstates the expected total.
+                    if (entryData["precipitation_amount_min"].is<float>()) {
+                        weatherData->dailyPrecipMin[d] += entryData["precipitation_amount_min"].as<float>();
+                    }
                     if (entryData["precipitation_amount_max"].is<float>()) {
                         weatherData->dailyPrecip[d] += entryData["precipitation_amount_max"].as<float>();
                     }
@@ -312,17 +320,13 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
         for (int d = 0; d < FORECAST_DAYS; d++) {
             int target_wday = (ref_today.tm_wday + (d + 1)) % 7;
             weatherData->dailyNames[d] = swedishDays[target_wday];
-            if (weatherData->dailyMinTemp[d] == 999.0f) {
-                weatherData->dailyMinTemp[d] = 0.0f;
-                weatherData->dailyMaxTemp[d] = 0.0f;
-            }
-            if (weatherData->dailyWeatherCodes[d] == 0) {
-                weatherData->dailyWeatherCodes[d] = 1;
-            }
-            Serial.printf("Day %d (%s): Min=%.1f, Max=%.1f, Precip=%.1f, Symbol=%d\n",
-                          d + 1, weatherData->dailyNames[d].c_str(),
+            // A day only counts as forecast if it got at least one temperature value
+            weatherData->dailyHasData[d] = weatherData->dailyMinTemp[d] != 999.0f;
+            Serial.printf("Day %d (%s): HasData=%d, Min=%.1f, Max=%.1f, Precip=%.1f-%.1f, Symbol=%d\n",
+                          d + 1, weatherData->dailyNames[d].c_str(), weatherData->dailyHasData[d],
                           weatherData->dailyMinTemp[d], weatherData->dailyMaxTemp[d],
-                          weatherData->dailyPrecip[d], weatherData->dailyWeatherCodes[d]);
+                          weatherData->dailyPrecipMin[d], weatherData->dailyPrecip[d],
+                          weatherData->dailyWeatherCodes[d]);
         }
 
     } else {

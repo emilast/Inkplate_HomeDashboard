@@ -16,13 +16,15 @@ public:
     float uvIndex;
     float precipitation;
     float windSpeed;
-    float dailyMinTemp[7];
-    float dailyMaxTemp[7];
-    String dailyNames[7];
+    float dailyMinTemp[FORECAST_DAYS];
+    float dailyMaxTemp[FORECAST_DAYS];
+    String dailyNames[FORECAST_DAYS];
     String weatherDescription;
     int weatherCode;
-    int dailyWeatherCodes[7];
-    float dailyPrecip[7];
+    int dailyWeatherCodes[FORECAST_DAYS];
+    float dailyPrecipMin[FORECAST_DAYS]; // sum of hourly minimum precipitation
+    float dailyPrecip[FORECAST_DAYS];    // sum of hourly maximum precipitation
+    bool dailyHasData[FORECAST_DAYS];
     bool isDay;
     float hourlyTemps[GRAPH_HOURS];
     float hourlyPrecipMin[GRAPH_HOURS];
