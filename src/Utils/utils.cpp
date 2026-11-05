@@ -1,6 +1,33 @@
 #include <string.h>
 #include "utils.h"
+// Returns the number of bytes in the UTF-8 sequence that starts with lead byte c,
+// or 1 for bytes that cannot start a sequence (stray continuation bytes etc).
+static size_t utf8SequenceLength(unsigned char c) {
+    if ((c & 0xE0) == 0xC0) return 2;
+    if ((c & 0xF0) == 0xE0) return 3;
+    if ((c & 0xF8) == 0xF0) return 4;
+    return 1;
+}
+
+// Maps a Unicode code point outside ISO-8859-1 to a close ISO-8859-1 replacement,
+// or returns 0 if there is none. Covers the punctuation that shows up in SL texts.
+static char replacementFor(unsigned long cp) {
+    switch (cp) {
+        case 0x2010: case 0x2011: case 0x2012:
+        case 0x2013: case 0x2014: case 0x2212: return '-';  // hyphens, dashes, minus
+        case 0x2018: case 0x2019: case 0x201A: case 0x2032: return '\'';
+        case 0x201C: case 0x201D: case 0x201E: case 0x2033: return '"';
+        case 0x2022: case 0x2027: return '\xB7';           // bullet -> middle dot
+        case 0x2026: return '.';                            // ellipsis
+        case 0x2007: case 0x2009: case 0x200A:
+        case 0x202F: return ' ';                            // thin / narrow spaces
+        default: return 0;
+    }
+}
+
 // Converts a UTF-8 encoded string to ISO-8859-1 encoding.
+// Characters outside ISO-8859-1 are replaced by a close equivalent when one
+// exists (e.g. en dash -> '-'), otherwise by a single '?'.
 // Parameters:
 //   utf8 - Input string in UTF-8 encoding.
 //   iso - Output buffer for the ISO-8859-1 encoded string.
@@ -19,28 +46,42 @@ void utf8ToIso88591(const char *utf8, char *iso, size_t maxIsoLen) {
     while (utf8[i] && (maxIsoLen == 0 || j + 1 < maxIsoLen)) {
         unsigned char c = utf8[i];
 
-        if (c < 128) {
+        if (c < 0x80) {
             // ASCII character, copy directly
             iso[j++] = c;
             i++;
-        } else if ((c & 0xE0) == 0xC0) {
-            // 2-byte UTF-8 sequence (common for Latin-1 characters)
-            if (!utf8[i + 1]) break;
-            unsigned char c2 = utf8[i + 1];
+            continue;
+        }
 
-            if ((c == 0xC3) && (c2 >= 0x80 && c2 <= 0xBF)) {
-                // Convert UTF-8 Latin-1 block (C3 xx -> ISO-8859-1)
-                iso[j++] = c2 + 0x40;
-                i += 2;  // Skip the second byte
-            } else {
-                // Unrecognized sequence, replace with '?'
-                iso[j++] = '?';
-                i += 2;
-            }
-        } else {
-            // Unsupported character (e.g., 3-byte or 4-byte UTF-8)
+        size_t len = utf8SequenceLength(c);
+        if (len == 1) {
+            // Stray continuation byte or invalid lead byte
             iso[j++] = '?';
             i++;
+            continue;
+        }
+
+        // Decode the sequence, stopping at a missing or invalid continuation byte
+        unsigned long cp = c & (0xFF >> (len + 1));
+        size_t k = 1;
+        for (; k < len; k++) {
+            unsigned char cc = utf8[i + k];
+            if ((cc & 0xC0) != 0x80) break;  // also stops at the terminating '\0'
+            cp = (cp << 6) | (cc & 0x3F);
+        }
+        i += k;
+        if (k < len) {
+            iso[j++] = '?';  // truncated or malformed sequence
+            continue;
+        }
+
+        if (cp >= 0xA0 && cp <= 0xFF) {
+            iso[j++] = (char)cp;  // ISO-8859-1 maps 1:1 to these code points
+        } else if (cp >= 0x80 && cp < 0xA0) {
+            iso[j++] = ' ';  // C1 control characters
+        } else {
+            char r = replacementFor(cp);
+            iso[j++] = r ? r : '?';
         }
     }
     iso[j] = '\0';  // Null-terminate the ISO string
