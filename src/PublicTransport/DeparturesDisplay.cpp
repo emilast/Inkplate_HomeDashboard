@@ -108,39 +108,27 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
 
     ypos += row_height;
 
-    if (strcmp(state, "CANCELLED") == 0)
+    // Line badge and destination are the same for every kind of departure
+    drawInvertedString(display, fonts.normalTextFont, line, xpos, ypos, lineBadgeWidth);
+    display.printf(" %s", isoDestination);
+
+    bool cancelled = strcmp(state, "CANCELLED") == 0;
+    // Only show a delay if it is more than 1 minute
+    bool delayed = hour >= 0 && scheduledHour >= 0 && abs(minutesBetween(scheduledHour, scheduledMinute, hour, minute)) > 1;
+
+    if (cancelled || delayed)
     {
-      // Cancelled departure
-      drawInvertedString(display, fonts.normalTextFont, line, xpos, ypos, lineBadgeWidth);
-
-      display.printf(" %s", isoDestination);
-
+      // Struck-through scheduled time at the right edge, and "INSTÄLLD" or the new time before it
       int w = drawRightString(display, fonts.normalTextFont, scheduledTimeBuffer, rightPos, ypos, true);
-      drawRightString(display, fonts.normalTextFont, "INST\xc4LLD", rightPos - w - marginToOriginalTime, ypos, false);
-      display.println();
-    }
-    else if (hour >= 0 && scheduledHour >= 0 && abs(minutesBetween(scheduledHour, scheduledMinute, hour, minute)) > 1)
-    {
-      // Delayed departure (only if delay is more than 1 minute)
-      drawInvertedString(display, fonts.normalTextFont, line, xpos, ypos, lineBadgeWidth);
-
-      display.printf(" %s", isoDestination);
-
-      int w = drawRightString(display, fonts.normalTextFont, scheduledTimeBuffer, rightPos, ypos, true);
-
-      drawRightString(display, fonts.normalTextFont, timeBuffer, rightPos - w - marginToOriginalTime, ypos, false);
-      display.println();
+      const char *statusText = cancelled ? "INST\xc4LLD" : timeBuffer;
+      drawRightString(display, fonts.normalTextFont, statusText, rightPos - w - marginToOriginalTime, ypos, false);
     }
     else
     {
       // On-time departure
-      drawInvertedString(display, fonts.normalTextFont, line, xpos, ypos, lineBadgeWidth);
-
-      display.printf(" %s", isoDestination);
-      drawRightString(display, fonts.normalTextFont, timeBuffer, E_INK_WIDTH - rightMargin, ypos, false);
-
-      display.println();
+      drawRightString(display, fonts.normalTextFont, timeBuffer, rightPos, ypos, false);
     }
+    display.println();
 
     const GFXfont &deviationFont = fonts.smallTextFont;
 

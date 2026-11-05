@@ -205,16 +205,10 @@ void loop()
   if (online)
   {
     Serial.println("Bus information from API...");
-    if (!drawDepartures(display, fonts, BUS_SITE_ID, BusType, BUS_TITLE, rightXpos, 65, busLineWidth, true, row_height))
-    {
-      drawDepartures(display, fonts, BUS_SITE_ID, BusType, BUS_TITLE, rightXpos, 65, busLineWidth, true, row_height);
-    }
+    drawDeparturesWithRetry(BUS_SITE_ID, BusType, BUS_TITLE, 65, busLineWidth, true);
 
     Serial.println("Train information from API...");
-    if (!drawDepartures(display, fonts, TRAIN_SITE_ID, TrainType, TRAIN_TITLE, rightXpos, 385, trainLineWidth, false, row_height))
-    {
-      drawDepartures(display, fonts, TRAIN_SITE_ID, TrainType, TRAIN_TITLE, rightXpos, 385, trainLineWidth, false, row_height);
-    }
+    drawDeparturesWithRetry(TRAIN_SITE_ID, TrainType, TRAIN_TITLE, 385, trainLineWidth, false);
   }
   else
   {
@@ -245,6 +239,22 @@ void loop()
   esp_task_wdt_reset();
   delay(REFRESH_INTERVAL_MS);
   esp_task_wdt_reset();
+}
+
+// Draws one departures section, trying once more after a short pause if the API
+// call fails (the error message from a failed attempt is drawn over on success).
+void drawDeparturesWithRetry(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime)
+{
+  for (int attempt = 0; attempt < 2; attempt++)
+  {
+    if (attempt > 0)
+    {
+      delay(1000);
+      esp_task_wdt_reset();
+    }
+    if (drawDepartures(display, fonts, siteId, transportType, title, rightXpos, ypos, lineBadgeWidth, useInformalTime, row_height))
+      return;
+  }
 }
 
 void printStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
