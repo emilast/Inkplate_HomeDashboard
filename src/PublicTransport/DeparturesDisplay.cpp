@@ -25,7 +25,7 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
   const int rightPos = E_INK_WIDTH - rightMargin;
 
   // Clear area
-  const int headerHeight = fonts.boldTextFont.yAdvance; // The header is printed with startYpos as baseline, so the etxt will apear above it
+  const int headerHeight = fonts.boldTextFont.yAdvance; // The header is printed with startYpos as baseline, so the text will appear above it
   display.fillRect(
     xpos,
     startYpos - headerHeight,

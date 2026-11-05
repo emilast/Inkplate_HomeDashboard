@@ -1,5 +1,4 @@
-#ifndef WEATHERDATA_H
-#define WEATHERDATA_H
+#pragma once
 
 #include <Arduino.h>
 
@@ -27,5 +26,3 @@ public:
     float hourlyPrecip[GRAPH_HOURS];
     String hourlyTimes[GRAPH_HOURS];
 };
-
-#endif

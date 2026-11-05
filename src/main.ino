@@ -1,25 +1,13 @@
 /*
-   Inkplate10_Grayscale example for Soldered Inkplate 10
-   For this example you will need only USB cable and Inkplate 10
-   Select "e-radionica Inkplate10" or "Soldered Inkplate10" from Tools -> Board menu.
-   Don't have "e-radionica Inkplate10" or "Soldered Inkplate10" option? Follow our tutorial and add it:
-   https://soldered.com/learn/add-inkplate-6-board-definition-to-arduino-ide/
+   Inkplate Home Dashboard
 
-   This example will show you how you can draw some simple graphics using
-   Adafruit GFX functions. Yes, Inkplate library is 100% compatible with GFX lib!
-   Learn more about Adafruit GFX: https://learn.adafruit.com/adafruit-gfx-graphics-library
-   Inkplate will be used in gray mode which is 3 bit, so you can have up to 8 different colors (black, 6 gray
-   colors and white) Color is represented by number, where number 0 means black and number 7 means white, while
-   everything in between are shades of gray.
-
-   Want to learn more about Inkplate? Visit www.inkplate.io
-   Looking to get support? Write on our forums: https://forum.soldered.com/
-   2 December 2022 by Soldered
+   Shows the time, the SMHI weather forecast and realtime SL departures on an
+   Inkplate 10 or Inkplate 5 V2 e-paper display. User settings are in config.h.
 */
 
-#include "Inkplate.h" //Include Inkplate library to the sketch
+#include "Inkplate.h"
 
-#include "HTTPClient.h" //Include library for HTTPClient
+#include "HTTPClient.h"
 #include <ArduinoJson.h>
 #include <WiFiManager.h>
 #include <esp_task_wdt.h>
@@ -33,9 +21,7 @@
   #define DISPLAY_MODE INKPLATE_3BIT
 #endif
 
-Inkplate display(DISPLAY_MODE); // Create object on Inkplate library and set library to work in gray mode (3-bit)
-                                 // Other option is BW mode, which is demonstrated in next example
-                                 // "Inkplate_basic_BW"
+Inkplate display(DISPLAY_MODE); // 1-bit or 3-bit (grayscale) mode, see MONOCHROME in config.h
 
 #include "Utils/utils.h"
 #include "Utils/DisplayManager.h"
@@ -99,8 +85,6 @@ bool weatherFetchMissed = false;
 void setup()
 {
   Serial.begin(115200);
-
-  // display.changeWaveform(INKPLATE10_WAVEFORM1);
 
   display.begin();        // Init library (you should call this function ONLY ONCE)
   display.clearDisplay(); // Clear any data that may have been in (software) frame buffer.
@@ -193,7 +177,7 @@ void loop()
     }
   }
 
-  display.clearDisplay();        // Clear everytning that is inside frame buffer in ESP32
+  display.clearDisplay(); // Clear the frame buffer in ESP32 memory
   printLocalTime(display, fonts, leftXpos, 100);
 
   // Fetch weather every FULL_REFRESH_EVERY_N_UPDATES updates, and as soon as Wi-Fi
@@ -229,7 +213,7 @@ void loop()
     display.partialUpdate();
   }
 #else
-  // For grayscale mode, use normal display update since partial mode is not yet supported i grayscale
+  // For grayscale mode, use normal display update since partial mode is not yet supported in grayscale
   display.display();
 #endif
 
