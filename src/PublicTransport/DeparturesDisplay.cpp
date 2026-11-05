@@ -203,7 +203,7 @@ bool drawDepartures(Inkplate &display, const FontCollection &fonts, const char *
       int ypos = startYpos + row_height;
       display.setCursor(xpos, ypos);
       display.setFont(&fonts.normalTextFont);
-      display.print("JSON parse error");
+      display.print("Kunde inte tolka svaret");
     }
   }
   else
@@ -218,7 +218,7 @@ bool drawDepartures(Inkplate &display, const FontCollection &fonts, const char *
     int ypos = startYpos + row_height;
     display.setCursor(xpos, ypos);
     display.setFont(&fonts.normalTextFont);
-    display.printf("Error on API call (%d):", httpCode);
+    display.printf("Fel vid API-anrop (%d):", httpCode);
 
     ypos += fonts.smallTextFont.yAdvance + 4;
 
@@ -250,7 +250,7 @@ bool drawDepartures(Inkplate &display, const FontCollection &fonts, const char *
     }
     else
     {
-      errMsg = "(Empty response)";
+      errMsg = "(Tomt svar)";
     }
 
     char isoErrMsg[256];

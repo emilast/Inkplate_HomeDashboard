@@ -253,12 +253,12 @@ void printStartupMessage(Inkplate &display, const FontCollection &fonts, int xpo
 
   display.setCursor(xpos, ypos);
   display.setFont(&fonts.boldTextFont);
-  display.println("Connecting to WiFi network...");
+  display.println("Ansluter till WiFi...");
   ypos += row_height;
 
   display.setCursor(xpos, ypos);
   display.setFont(&fonts.normalTextFont);
-  int wrappedLines = drawWrappedText(display, fonts.normalTextFont, "In case of problems, configure the board using the temporary WiFi network:", xpos, ypos, E_INK_WIDTH - xpos - 25);
+  int wrappedLines = drawWrappedText(display, fonts.normalTextFont, "Vid problem, st\xe4ll in WiFi via det tillf\xe4lliga n\xe4tverket:", xpos, ypos, E_INK_WIDTH - xpos - 25);
   ypos += row_height * wrappedLines;
 
   display.setCursor(xpos, ypos);
