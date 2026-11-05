@@ -30,7 +30,6 @@ public:
 private:
     // --- Private helper methods ---
     String getWeatherDescription(int code);
-    String extractSun(String dateTime);
     String getDayName(int dayIndex);
 };
 

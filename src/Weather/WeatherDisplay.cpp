@@ -85,41 +85,6 @@ int getTemperatureGraphY(float temperature, float paddedTempMin, float paddedTem
 }
 
 
-int calculateLocalTimeZoneOffset(WeatherData *weatherData)
-{
-    struct tm localTime;
-    if (!getLocalTime(&localTime)) return 0;
-
-    // Parse the first hourly time (format "HH:MM")
-    int weatherHour = 0, weatherMin = 0;
-    sscanf(weatherData->hourlyTimes[0].c_str(), "%d:%d", &weatherHour, &weatherMin);
-
-    // Calculate the difference in hours between local time and weather time
-    int localHour = localTime.tm_hour;
-    int diff = localHour - weatherHour;
-
-    // If closer to the next hour, then SMHI seems to use the next hour as the first hour in the hourly forecast.
-    if (localTime.tm_min > 30)
-    {
-        diff++; // Adjust for minutes if local time is earlier in the hour
-    }
-
-    // Log the local time and weather time for debugging
-    Serial.printf("Local time: %02d:%02d, Weather time: %02d:%02d, Difference: %d hours\n",
-                    localHour, localTime.tm_min, weatherHour, weatherMin, diff);
-
-    // Adjust for possible day wrap-around
-    if (diff < -12)
-        diff += 24;
-    if (diff > 12)
-        diff -= 24;
-
-    int timeZoneOffset = diff;
-    Serial.printf("Calculated timeZoneOffset: %d\n", timeZoneOffset);
-
-    return timeZoneOffset;
-}
-
 // Draw dithered gray bar
 void drawBarGray(Adafruit_GFX &display, int x, int chartBottom, int barHeight, int xStep) {
 #if MONOCHROME
@@ -321,19 +286,14 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
         // display.drawThickLine(x1, y1, x2, y2, _BLACK, 3);
     }
 
-    // Calculate timezone offset using getLocalTime() and first hourlyTimes element
-    int timeZoneOffset = calculateLocalTimeZoneOffset(weatherData); // fallback default
-
     // Time labels under X-axis
     for (int i = 0; i < GRAPH_HOURS; i++)
     {
         int x = chartLeft + i * xStep;
         // Draw vertical grid lines for each hour
-        // Convert weather time to local time using calculated timeZoneOffset
-        int weatherHour = 0, weatherMin = 0;
-        sscanf(weatherData->hourlyTimes[i].c_str(), "%d:%d", &weatherHour, &weatherMin);
-
-        int localHour = (weatherHour + timeZoneOffset + 24) % 24;
+        // hourlyTimes are already in local time ("HH:MM"); -1 if unknown
+        int localHour = -1, localMin = 0;
+        sscanf(weatherData->hourlyTimes[i].c_str(), "%d:%d", &localHour, &localMin);
 
         if (localHour == 0 || localHour == 12)
         {

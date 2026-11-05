@@ -42,14 +42,6 @@ switch (code) {
     }
 }
 
-String WeatherClient::extractSun(String dateTime) {
-  int tIndex = dateTime.indexOf('T');
-  if (tIndex != -1 && tIndex + 5 < dateTime.length()) {
-      return dateTime.substring(tIndex + 1, tIndex + 6);  // e.g., "06:11"
-  }
-  return "??:??";
-}
-
 // Function to get the current day of the week and return the next 7 days dynamically
 String WeatherClient::getDayName(int dayIndex) {
   static const char *daysOfWeek[] = {"S\xf6n", "M\xe5n", "Tis", "Ons", "Tor", "Fre", "L\xf6r"};
@@ -125,6 +117,21 @@ static inline time_t utcToEpoch(int year, int month, int day, int hour, int minu
     unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     int days = era * 146097 + static_cast<int>(doe) - 719468;
     return (time_t)days * 86400 + hour * 3600 + minute * 60 + second;
+}
+
+// Converts an ISO 8601 UTC timestamp ("YYYY-MM-DDTHH:MM...") to local time as "HH:MM",
+// using the TZ set in setup(). Returns "??:??" if the timestamp can't be parsed.
+static String utcTimestampToLocalHHMM(const char *timestamp) {
+    int yr = 0, mo = 0, dy = 0, hr = 0, mn = 0;
+    if (!timestamp || sscanf(timestamp, "%d-%d-%dT%d:%d", &yr, &mo, &dy, &hr, &mn) != 5) {
+        return "??:??";
+    }
+    time_t utc_sec = utcToEpoch(yr, mo, dy, hr, mn, 0);
+    struct tm local_tm;
+    localtime_r(&utc_sec, &local_tm);
+    char buf[6];
+    snprintf(buf, sizeof(buf), "%02d:%02d", local_tm.tm_hour, local_tm.tm_min);
+    return String(buf);
 }
 
 // Function to fetch weather data from SMHI API (SNOW1gv1)
@@ -223,8 +230,9 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
                 }
             }
 
+            // SMHI times are UTC ("2025-01-01T13:00:00Z"); store them as local "HH:MM"
             const char *timeStr = timeSeries[forecastIndex + i]["time"] | "";
-            weatherData->hourlyTimes[i] = extractSun(String(timeStr));
+            weatherData->hourlyTimes[i] = utcTimestampToLocalHHMM(timeStr);
         }
 
         // Initialize daily forecast aggregates
