@@ -5,8 +5,9 @@
 #define GRAPH_HOURS 24
 #define FORECAST_DAYS 3
 
-class WeatherData {
-public:
+class WeatherData
+{
+  public:
     // Member variables
     float currentTemp;
     float feelsLike;

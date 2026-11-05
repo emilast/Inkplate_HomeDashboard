@@ -1,83 +1,157 @@
 #include "WeatherClient.h"
-#include <WiFi.h>          
-#include <HTTPClient.h>     
-#include "WeatherData.h"     
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include "WeatherData.h"
 
-#include <ArduinoJson.h>     
+#include <ArduinoJson.h>
 
 #include <Inkplate.h>
 
-
 // Function to get weather description based on the weather code
-String WeatherClient::getWeatherDescription(int code) {
-switch (code) {
-        case 1: return String("Klart v\xE4""der"); // Clear sky
-        case 2: return String("N\xE4""stan klart"); // Nearly clear sky
-        case 3: return String("V\xE4""xlande molnighet"); // Variable cloudiness
-        case 4: return String("Halvklart"); // Halfclear sky
-        case 5: return String("Molnigt"); // Cloudy sky
-        case 6: return String("Mulet"); // Overcast
-        case 7: return String("Dimma"); // Fog
-        case 8: return String("L\xE4""tta regnskurar"); // Light rain showers
-        case 9: return String("M\xE5""ttliga regnskurar"); // Moderate rain showers
-        case 10: return String("Kraftiga regnskurar"); // Heavy rain showers
-        case 11: return String("\xC5""skv\xE4""der"); // Thunderstorm
-        case 12: return String("L\xE4""tta bl\xF6""tsn\xF6""skurar"); // Light sleet showers
-        case 13: return String("M\xE5""ttliga bl\xF6""tsn\xF6""skurar"); // Moderate sleet showers
-        case 14: return String("Kraftiga bl\xF6""tsn\xF6""skurar"); // Heavy sleet showers
-        case 15: return String("L\xE4""tta sn\xF6""byar"); // Light snow showers
-        case 16: return String("M\xE5""ttliga sn\xF6""byar"); // Moderate snow showers
-        case 17: return String("Kraftiga sn\xF6""byar"); // Heavy snow showers
-        case 18: return String("L\xE4""tt regn"); // Light rain
-        case 19: return String("M\xE5""ttligt regn"); // Moderate rain
-        case 20: return String("Kraftigt regn"); // Heavy rain
-        case 21: return String("\xC5""ska"); // Thunder
-        case 22: return String("L\xE4""tt bl\xF6""tsn\xF6"); // Light sleet
-        case 23: return String("M\xE5""ttlig bl\xF6""tsn\xF6"); // Moderate sleet
-        case 24: return String("Kraftig bl\xF6""tsn\xF6"); // Heavy sleet
-        case 25: return String("L\xE4""tt sn\xF6""fall"); // Light snowfall
-        case 26: return String("M\xE5""ttligt sn\xF6""fall"); // Moderate snowfall
-        case 27: return String("Kraftigt sn\xF6""fall"); // Heavy snowfall
-        default: return String("Ok\xE4""nd v\xE4""dertyp: ") + code; // Unknown weather type
+String WeatherClient::getWeatherDescription(int code)
+{
+    switch (code)
+    {
+    case 1:
+        return String("Klart v\xE4"
+                      "der"); // Clear sky
+    case 2:
+        return String("N\xE4"
+                      "stan klart"); // Nearly clear sky
+    case 3:
+        return String("V\xE4"
+                      "xlande molnighet"); // Variable cloudiness
+    case 4:
+        return String("Halvklart"); // Halfclear sky
+    case 5:
+        return String("Molnigt"); // Cloudy sky
+    case 6:
+        return String("Mulet"); // Overcast
+    case 7:
+        return String("Dimma"); // Fog
+    case 8:
+        return String("L\xE4"
+                      "tta regnskurar"); // Light rain showers
+    case 9:
+        return String("M\xE5"
+                      "ttliga regnskurar"); // Moderate rain showers
+    case 10:
+        return String("Kraftiga regnskurar"); // Heavy rain showers
+    case 11:
+        return String("\xC5"
+                      "skv\xE4"
+                      "der"); // Thunderstorm
+    case 12:
+        return String("L\xE4"
+                      "tta bl\xF6"
+                      "tsn\xF6"
+                      "skurar"); // Light sleet showers
+    case 13:
+        return String("M\xE5"
+                      "ttliga bl\xF6"
+                      "tsn\xF6"
+                      "skurar"); // Moderate sleet showers
+    case 14:
+        return String("Kraftiga bl\xF6"
+                      "tsn\xF6"
+                      "skurar"); // Heavy sleet showers
+    case 15:
+        return String("L\xE4"
+                      "tta sn\xF6"
+                      "byar"); // Light snow showers
+    case 16:
+        return String("M\xE5"
+                      "ttliga sn\xF6"
+                      "byar"); // Moderate snow showers
+    case 17:
+        return String("Kraftiga sn\xF6"
+                      "byar"); // Heavy snow showers
+    case 18:
+        return String("L\xE4"
+                      "tt regn"); // Light rain
+    case 19:
+        return String("M\xE5"
+                      "ttligt regn"); // Moderate rain
+    case 20:
+        return String("Kraftigt regn"); // Heavy rain
+    case 21:
+        return String("\xC5"
+                      "ska"); // Thunder
+    case 22:
+        return String("L\xE4"
+                      "tt bl\xF6"
+                      "tsn\xF6"); // Light sleet
+    case 23:
+        return String("M\xE5"
+                      "ttlig bl\xF6"
+                      "tsn\xF6"); // Moderate sleet
+    case 24:
+        return String("Kraftig bl\xF6"
+                      "tsn\xF6"); // Heavy sleet
+    case 25:
+        return String("L\xE4"
+                      "tt sn\xF6"
+                      "fall"); // Light snowfall
+    case 26:
+        return String("M\xE5"
+                      "ttligt sn\xF6"
+                      "fall"); // Moderate snowfall
+    case 27:
+        return String("Kraftigt sn\xF6"
+                      "fall"); // Heavy snowfall
+    default:
+        return String("Ok\xE4"
+                      "nd v\xE4"
+                      "dertyp: ") +
+               code; // Unknown weather type
     }
 }
 
-float windChill(float tempC, float windSpeedKph) {
+float windChill(float tempC, float windSpeedKph)
+{
     return 13.12 + 0.6215 * tempC - 11.37 * pow(windSpeedKph, 0.16) + 0.3965 * tempC * pow(windSpeedKph, 0.16);
 }
 
-float heatIndex(float tempC, float humidity) {
+float heatIndex(float tempC, float humidity)
+{
     float T = tempC;
     float R = humidity;
 
     return -8.784695 +
            1.61139411 * T +
            2.338549 * R +
-          -0.14611605 * T * R +
-          -0.012308094 * pow(T, 2) +
-          -0.016424828 * pow(R, 2) +
+           -0.14611605 * T * R +
+           -0.012308094 * pow(T, 2) +
+           -0.016424828 * pow(R, 2) +
            0.002211732 * pow(T, 2) * R +
            0.00072546 * T * pow(R, 2) +
-          -0.000003582 * pow(T, 2) * pow(R, 2);
+           -0.000003582 * pow(T, 2) * pow(R, 2);
 }
 
-float feelsLikeC(float tempC, float humidity, float windSpeedMps) {
+float feelsLikeC(float tempC, float humidity, float windSpeedMps)
+{
     float windKph = windSpeedMps * 3.6;
 
-    if (tempC <= 10.0 && windKph > 4.8) {
+    if (tempC <= 10.0 && windKph > 4.8)
+    {
         return windChill(tempC, windKph);
-    } else if (tempC >= 27.0 && humidity >= 40.0) {
+    }
+    else if (tempC >= 27.0 && humidity >= 40.0)
+    {
         return heatIndex(tempC, humidity);
-    } else {
-        return tempC;  // no correction
+    }
+    else
+    {
+        return tempC; // no correction
     }
 }
 
-
-static inline time_t utcToEpoch(int year, int month, int day, int hour, int minute, int second) {
+static inline time_t utcToEpoch(int year, int month, int day, int hour, int minute, int second)
+{
     int y = year;
     int m = month;
-    if (m <= 2) {
+    if (m <= 2)
+    {
         y -= 1;
         m += 12;
     }
@@ -91,9 +165,11 @@ static inline time_t utcToEpoch(int year, int month, int day, int hour, int minu
 
 // Converts an ISO 8601 UTC timestamp ("YYYY-MM-DDTHH:MM...") to local time as "HH:MM",
 // using the TZ set in setup(). Returns "??:??" if the timestamp can't be parsed.
-static String utcTimestampToLocalHHMM(const char *timestamp) {
+static String utcTimestampToLocalHHMM(const char *timestamp)
+{
     int yr = 0, mo = 0, dy = 0, hr = 0, mn = 0;
-    if (!timestamp || sscanf(timestamp, "%d-%d-%dT%d:%d", &yr, &mo, &dy, &hr, &mn) != 5) {
+    if (!timestamp || sscanf(timestamp, "%d-%d-%dT%d:%d", &yr, &mo, &dy, &hr, &mn) != 5)
+    {
         return "??:??";
     }
     time_t utcSec = utcToEpoch(yr, mo, dy, hr, mn, 0);
@@ -105,7 +181,8 @@ static String utcTimestampToLocalHHMM(const char *timestamp) {
 }
 
 // Function to fetch weather data from SMHI API (SNOW1gv1)
-void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* latitude, const float* longitude) {
+void WeatherClient::fetchWeatherData(WeatherData *weatherData, const float *latitude, const float *longitude)
+{
     if (!weatherData || !latitude || !longitude) return;
 
     char url[320];
@@ -120,7 +197,8 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
     http.begin(url);
     int httpCode = http.GET();
 
-    if (httpCode == HTTP_CODE_OK) {
+    if (httpCode == HTTP_CODE_OK)
+    {
         JsonDocument filter;
         filter["timeSeries"][0]["time"] = true;
         filter["timeSeries"][0]["data"]["air_temperature"] = true;
@@ -132,15 +210,17 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
 
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, http.getStream(), DeserializationOption::Filter(filter));
-        
-        if (error) {
+
+        if (error)
+        {
             Serial.printf("JSON deserialization error: %s\n", error.c_str());
             http.end();
             return;
         }
 
         JsonArray timeSeries = doc["timeSeries"].as<JsonArray>();
-        if (timeSeries.isNull() || timeSeries.size() == 0) {
+        if (timeSeries.isNull() || timeSeries.size() == 0)
+        {
             Serial.println("No time series data available.");
             http.end();
             return;
@@ -154,24 +234,32 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
         // Extract current weather parameters from the data object
         JsonObject currentData = timeSeries[forecastIndex]["data"];
 
-        if (!currentData.isNull()) {
-            if (currentData["air_temperature"].is<float>()) {
+        if (!currentData.isNull())
+        {
+            if (currentData["air_temperature"].is<float>())
+            {
                 weatherData->currentTemp = currentData["air_temperature"].as<float>();
             }
-            if (currentData["wind_speed"].is<float>()) {
+            if (currentData["wind_speed"].is<float>())
+            {
                 weatherData->windSpeed = currentData["wind_speed"].as<float>();
             }
-            if (currentData["precipitation_amount_max"].is<float>()) {
+            if (currentData["precipitation_amount_max"].is<float>())
+            {
                 weatherData->precipitation = currentData["precipitation_amount_max"].as<float>();
             }
-            if (currentData["symbol_code"].is<int>()) {
+            if (currentData["symbol_code"].is<int>())
+            {
                 weatherData->weatherCode = currentData["symbol_code"].as<int>();
                 weatherData->weatherDescription = getWeatherDescription(weatherData->weatherCode);
             }
-            if (currentData["relative_humidity"].is<float>()) {
+            if (currentData["relative_humidity"].is<float>())
+            {
                 float humidity = currentData["relative_humidity"].as<float>();
                 weatherData->feelsLike = feelsLikeC(weatherData->currentTemp, humidity, weatherData->windSpeed);
-            } else {
+            }
+            else
+            {
                 // Without humidity the heat index can't be computed; 0 % limits the
                 // calculation to wind chill.
                 weatherData->feelsLike = feelsLikeC(weatherData->currentTemp, 0.0f, weatherData->windSpeed);
@@ -179,17 +267,22 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
         }
 
         // Fill in forecast graph values (next GRAPH_HOURS hours)
-        for (int i = 0; i < GRAPH_HOURS && (forecastIndex + i) < dataCount; i++) {
+        for (int i = 0; i < GRAPH_HOURS && (forecastIndex + i) < dataCount; i++)
+        {
             JsonObject forecastData = timeSeries[forecastIndex + i]["data"];
 
-            if (!forecastData.isNull()) {
-                if (forecastData["air_temperature"].is<float>()) {
+            if (!forecastData.isNull())
+            {
+                if (forecastData["air_temperature"].is<float>())
+                {
                     weatherData->hourlyTemps[i] = forecastData["air_temperature"].as<float>();
                 }
-                if (forecastData["precipitation_amount_min"].is<float>()) {
+                if (forecastData["precipitation_amount_min"].is<float>())
+                {
                     weatherData->hourlyPrecipMin[i] = forecastData["precipitation_amount_min"].as<float>();
                 }
-                if (forecastData["precipitation_amount_max"].is<float>()) {
+                if (forecastData["precipitation_amount_max"].is<float>())
+                {
                     weatherData->hourlyPrecip[i] = forecastData["precipitation_amount_max"].as<float>();
                 }
             }
@@ -200,7 +293,8 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
         }
 
         // Initialize daily forecast aggregates
-        for (int d = 0; d < FORECAST_DAYS; d++) {
+        for (int d = 0; d < FORECAST_DAYS; d++)
+        {
             weatherData->dailyMinTemp[d] = 999.0f;
             weatherData->dailyMaxTemp[d] = -999.0f;
             weatherData->dailyPrecipMin[d] = 0.0f;
@@ -211,7 +305,8 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
         }
 
         int bestSymbolHourDiff[FORECAST_DAYS];
-        for (int d = 0; d < FORECAST_DAYS; d++) {
+        for (int d = 0; d < FORECAST_DAYS; d++)
+        {
             bestSymbolHourDiff[d] = 999;
         }
 
@@ -219,7 +314,8 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
         struct tm refToday;
         bool hasRefToday = getLocalTime(&refToday);
 
-        for (int i = 0; i < dataCount; i++) {
+        for (int i = 0; i < dataCount; i++)
+        {
             const char *timeStr = timeSeries[i]["time"] | "";
             if (strlen(timeStr) < 16) continue;
 
@@ -230,7 +326,8 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
             struct tm localTm;
             localtime_r(&utcSec, &localTm);
 
-            if (!hasRefToday && i == 0) {
+            if (!hasRefToday && i == 0)
+            {
                 refToday = localTm;
                 hasRefToday = true;
             }
@@ -249,11 +346,14 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
 
             int daysAhead = (int)round((difftime(entryNoonSec, refNoonSec)) / 86400.0);
 
-            if (daysAhead >= 1 && daysAhead <= FORECAST_DAYS) {
+            if (daysAhead >= 1 && daysAhead <= FORECAST_DAYS)
+            {
                 int d = daysAhead - 1;
                 JsonObject entryData = timeSeries[i]["data"];
-                if (!entryData.isNull()) {
-                    if (entryData["air_temperature"].is<float>()) {
+                if (!entryData.isNull())
+                {
+                    if (entryData["air_temperature"].is<float>())
+                    {
                         float t = entryData["air_temperature"].as<float>();
                         if (t < weatherData->dailyMinTemp[d]) weatherData->dailyMinTemp[d] = t;
                         if (t > weatherData->dailyMaxTemp[d]) weatherData->dailyMaxTemp[d] = t;
@@ -261,16 +361,20 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
                     // Summing the hourly min and max gives a range for the day, matching
                     // the min - max label in the hourly graph. A sum of maximums alone
                     // overstates the expected total.
-                    if (entryData["precipitation_amount_min"].is<float>()) {
+                    if (entryData["precipitation_amount_min"].is<float>())
+                    {
                         weatherData->dailyPrecipMin[d] += entryData["precipitation_amount_min"].as<float>();
                     }
-                    if (entryData["precipitation_amount_max"].is<float>()) {
+                    if (entryData["precipitation_amount_max"].is<float>())
+                    {
                         weatherData->dailyPrecip[d] += entryData["precipitation_amount_max"].as<float>();
                     }
-                    if (entryData["symbol_code"].is<int>()) {
+                    if (entryData["symbol_code"].is<int>())
+                    {
                         int sym = entryData["symbol_code"].as<int>();
                         int hourDiff = abs(localTm.tm_hour - 13);
-                        if (hourDiff < bestSymbolHourDiff[d]) {
+                        if (hourDiff < bestSymbolHourDiff[d])
+                        {
                             bestSymbolHourDiff[d] = hourDiff;
                             weatherData->dailyWeatherCodes[d] = sym;
                         }
@@ -289,7 +393,8 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
             "L\xf6r"  // Lördag (6)
         };
 
-        for (int d = 0; d < FORECAST_DAYS; d++) {
+        for (int d = 0; d < FORECAST_DAYS; d++)
+        {
             int targetWday = (refToday.tm_wday + (d + 1)) % 7;
             weatherData->dailyNames[d] = swedishDays[targetWday];
             // A day only counts as forecast if it got at least one temperature value
@@ -300,8 +405,9 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
                           weatherData->dailyPrecipMin[d], weatherData->dailyPrecip[d],
                           weatherData->dailyWeatherCodes[d]);
         }
-
-    } else {
+    }
+    else
+    {
         Serial.printf("HTTP Error: %d\n", httpCode);
     }
 

@@ -69,15 +69,18 @@ int getTemperatureGraphY(float temperature, float paddedTempMin, float paddedTem
     return chartBottom - ((temperature - paddedTempMin) / tempRange) * (graphHeight - 2 * marginY);
 }
 
-
 // Draw dithered gray bar
-void drawBarGray(Adafruit_GFX &display, int x, int chartBottom, int barHeight, int xStep) {
+void drawBarGray(Adafruit_GFX &display, int x, int chartBottom, int barHeight, int xStep)
+{
 #if MONOCHROME
     // In monochrome mode, draw dithered pattern for gray
-    for (int dy = 0; dy < barHeight; ++dy) {
-        for (int dx = 0; dx < xStep + 1; ++dx) {
-        // Simple Bayer 2x2 dithering pattern
-            if (((((x + dx) & 1) ^ ((chartBottom - barHeight + dy) & 1)) == 0)) {
+    for (int dy = 0; dy < barHeight; ++dy)
+    {
+        for (int dx = 0; dx < xStep + 1; ++dx)
+        {
+            // Simple Bayer 2x2 dithering pattern
+            if (((((x + dx) & 1) ^ ((chartBottom - barHeight + dy) & 1)) == 0))
+            {
                 display.drawPixel(x + dx, chartBottom - barHeight + dy, _BLACK);
             }
         }
@@ -231,7 +234,8 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
             int chartRight = xpos + graphWidth - 2 * marginX;
             int printX = x;
             // If text would extend past right edge, shift left
-            if (printX + (int)tbw > chartRight) {
+            if (printX + (int)tbw > chartRight)
+            {
                 printX = chartRight - tbw;
                 if (printX < chartLeft) printX = chartLeft; // ensure we don't go left of chart
             }
@@ -295,7 +299,7 @@ void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int y
     const int labelWidth = 225;
 
     drawHeader(display, fonts.boldTextFont, "V\xE4"
-                               "der",
+                                            "der",
                xpos, ypos);
     ypos += rowHeight;
 

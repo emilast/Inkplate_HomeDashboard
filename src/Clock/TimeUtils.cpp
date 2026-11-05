@@ -2,9 +2,11 @@
 #include <time.h>
 #include <Inkplate.h>
 
-void printLocalTime(Inkplate &display, const FontCollection &fonts, int xpos, int ypos) {
+void printLocalTime(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
+{
     struct tm timeinfo;
-    if (!getLocalTime(&timeinfo)) {
+    if (!getLocalTime(&timeinfo))
+    {
         Serial.println("Failed to obtain time");
         return;
     }

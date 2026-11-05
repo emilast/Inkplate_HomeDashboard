@@ -2,7 +2,8 @@
 #include "utils.h"
 // Returns the number of bytes in the UTF-8 sequence that starts with lead byte c,
 // or 1 for bytes that cannot start a sequence (stray continuation bytes etc).
-static size_t utf8SequenceLength(unsigned char c) {
+static size_t utf8SequenceLength(unsigned char c)
+{
     if ((c & 0xE0) == 0xC0) return 2;
     if ((c & 0xF0) == 0xE0) return 3;
     if ((c & 0xF8) == 0xF0) return 4;
@@ -11,17 +12,39 @@ static size_t utf8SequenceLength(unsigned char c) {
 
 // Maps a Unicode code point outside ISO-8859-1 to a close ISO-8859-1 replacement,
 // or returns 0 if there is none. Covers the punctuation that shows up in SL texts.
-static char replacementFor(unsigned long cp) {
-    switch (cp) {
-        case 0x2010: case 0x2011: case 0x2012:
-        case 0x2013: case 0x2014: case 0x2212: return '-';  // hyphens, dashes, minus
-        case 0x2018: case 0x2019: case 0x201A: case 0x2032: return '\'';
-        case 0x201C: case 0x201D: case 0x201E: case 0x2033: return '"';
-        case 0x2022: case 0x2027: return '\xB7';           // bullet -> middle dot
-        case 0x2026: return '.';                            // ellipsis
-        case 0x2007: case 0x2009: case 0x200A:
-        case 0x202F: return ' ';                            // thin / narrow spaces
-        default: return 0;
+static char replacementFor(unsigned long cp)
+{
+    switch (cp)
+    {
+    case 0x2010:
+    case 0x2011:
+    case 0x2012:
+    case 0x2013:
+    case 0x2014:
+    case 0x2212:
+        return '-'; // hyphens, dashes, minus
+    case 0x2018:
+    case 0x2019:
+    case 0x201A:
+    case 0x2032:
+        return '\'';
+    case 0x201C:
+    case 0x201D:
+    case 0x201E:
+    case 0x2033:
+        return '"';
+    case 0x2022:
+    case 0x2027:
+        return '\xB7'; // bullet -> middle dot
+    case 0x2026:
+        return '.'; // ellipsis
+    case 0x2007:
+    case 0x2009:
+    case 0x200A:
+    case 0x202F:
+        return ' '; // thin / narrow spaces
+    default:
+        return 0;
     }
 }
 
@@ -32,21 +55,26 @@ static char replacementFor(unsigned long cp) {
 //   utf8 - Input string in UTF-8 encoding.
 //   iso - Output buffer for the ISO-8859-1 encoded string.
 //   maxIsoLen - Size of the output buffer (0 for unlimited / legacy mode).
-void utf8ToIso88591(const char *utf8, char *iso, size_t maxIsoLen) {
-    if (!utf8 || !iso) {
+void utf8ToIso88591(const char *utf8, char *iso, size_t maxIsoLen)
+{
+    if (!utf8 || !iso)
+    {
         if (iso && maxIsoLen > 0) *iso = '\0';
         return;
     }
-    if (maxIsoLen == 1) {
+    if (maxIsoLen == 1)
+    {
         *iso = '\0';
         return;
     }
     size_t i = 0, j = 0;
 
-    while (utf8[i] && (maxIsoLen == 0 || j + 1 < maxIsoLen)) {
+    while (utf8[i] && (maxIsoLen == 0 || j + 1 < maxIsoLen))
+    {
         unsigned char c = utf8[i];
 
-        if (c < 0x80) {
+        if (c < 0x80)
+        {
             // ASCII character, copy directly
             iso[j++] = c;
             i++;
@@ -54,7 +82,8 @@ void utf8ToIso88591(const char *utf8, char *iso, size_t maxIsoLen) {
         }
 
         size_t len = utf8SequenceLength(c);
-        if (len == 1) {
+        if (len == 1)
+        {
             // Stray continuation byte or invalid lead byte
             iso[j++] = '?';
             i++;
@@ -64,27 +93,34 @@ void utf8ToIso88591(const char *utf8, char *iso, size_t maxIsoLen) {
         // Decode the sequence, stopping at a missing or invalid continuation byte
         unsigned long cp = c & (0xFF >> (len + 1));
         size_t k = 1;
-        for (; k < len; k++) {
+        for (; k < len; k++)
+        {
             unsigned char cc = utf8[i + k];
-            if ((cc & 0xC0) != 0x80) break;  // also stops at the terminating '\0'
+            if ((cc & 0xC0) != 0x80) break; // also stops at the terminating '\0'
             cp = (cp << 6) | (cc & 0x3F);
         }
         i += k;
-        if (k < len) {
-            iso[j++] = '?';  // truncated or malformed sequence
+        if (k < len)
+        {
+            iso[j++] = '?'; // truncated or malformed sequence
             continue;
         }
 
-        if (cp >= 0xA0 && cp <= 0xFF) {
-            iso[j++] = (char)cp;  // ISO-8859-1 maps 1:1 to these code points
-        } else if (cp >= 0x80 && cp < 0xA0) {
-            iso[j++] = ' ';  // C1 control characters
-        } else {
+        if (cp >= 0xA0 && cp <= 0xFF)
+        {
+            iso[j++] = (char)cp; // ISO-8859-1 maps 1:1 to these code points
+        }
+        else if (cp >= 0x80 && cp < 0xA0)
+        {
+            iso[j++] = ' '; // C1 control characters
+        }
+        else
+        {
             char r = replacementFor(cp);
             iso[j++] = r ? r : '?';
         }
     }
-    iso[j] = '\0';  // Null-terminate the ISO string
+    iso[j] = '\0'; // Null-terminate the ISO string
 }
 
 // Extracts the hour and minute from a timestamp string in the format "YYYY-MM-DDTHH:MM:SS".
@@ -92,12 +128,16 @@ void utf8ToIso88591(const char *utf8, char *iso, size_t maxIsoLen) {
 //   timestamp - Input timestamp string.
 //   hour - Reference to an integer to store the extracted hour.
 //   minute - Reference to an integer to store the extracted minute.
-void extractHourAndMinute(const char *timestamp, int &hour, int &minute) {
-    if (timestamp != nullptr && strlen(timestamp) >= 16) {           // Ensure the string is valid and long enough
-        hour = (timestamp[11] - '0') * 10 + (timestamp[12] - '0');    // Extract hour
-        minute = (timestamp[14] - '0') * 10 + (timestamp[15] - '0');  // Extract minute
-    } else {
-        hour = -1;    // Invalid hour
-        minute = -1;  // Invalid minute
+void extractHourAndMinute(const char *timestamp, int &hour, int &minute)
+{
+    if (timestamp != nullptr && strlen(timestamp) >= 16)
+    {                                                                // Ensure the string is valid and long enough
+        hour = (timestamp[11] - '0') * 10 + (timestamp[12] - '0');   // Extract hour
+        minute = (timestamp[14] - '0') * 10 + (timestamp[15] - '0'); // Extract minute
+    }
+    else
+    {
+        hour = -1;   // Invalid hour
+        minute = -1; // Invalid minute
     }
 }

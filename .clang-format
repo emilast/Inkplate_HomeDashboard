@@ -1,0 +1,14 @@
+# Formatting for the project's own sources. Run from the repository root:
+#   clang-format -i src/*.h src/*/*.h src/*/*.cpp
+#   clang-format -i --assume-filename=main.cpp src/main.ino
+# Generated font and icon headers are excluded in .clang-format-ignore.
+BasedOnStyle: Microsoft
+IndentWidth: 4
+ColumnLimit: 0
+SortIncludes: Never
+IncludeBlocks: Preserve
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AlignTrailingComments: true
+PointerAlignment: Right

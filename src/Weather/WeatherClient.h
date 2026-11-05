@@ -6,13 +6,13 @@
 #include <Inkplate.h>
 #include <Arduino.h>
 
-class WeatherClient {
-public:
-
+class WeatherClient
+{
+  public:
     // --- Public methods ---
-    void fetchWeatherData(WeatherData* weatherData, const float* latitude, const float* longitude);
+    void fetchWeatherData(WeatherData *weatherData, const float *latitude, const float *longitude);
 
-private:
+  private:
     // --- Private helper methods ---
     String getWeatherDescription(int code);
 };

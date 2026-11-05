@@ -1,7 +1,8 @@
 #pragma once
-#include "Inkplate.h"   // Include Inkplate library to the sketch
+#include "Inkplate.h" // Include Inkplate library to the sketch
 
-struct FontCollection {
+struct FontCollection
+{
     const GFXfont &normalTextFont;
     const GFXfont &boldTextFont;
     const GFXfont &largeTextFont;
