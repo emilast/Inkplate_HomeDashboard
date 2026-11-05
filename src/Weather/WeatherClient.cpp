@@ -96,11 +96,11 @@ static String utcTimestampToLocalHHMM(const char *timestamp) {
     if (!timestamp || sscanf(timestamp, "%d-%d-%dT%d:%d", &yr, &mo, &dy, &hr, &mn) != 5) {
         return "??:??";
     }
-    time_t utc_sec = utcToEpoch(yr, mo, dy, hr, mn, 0);
-    struct tm local_tm;
-    localtime_r(&utc_sec, &local_tm);
+    time_t utcSec = utcToEpoch(yr, mo, dy, hr, mn, 0);
+    struct tm localTm;
+    localtime_r(&utcSec, &localTm);
     char buf[6];
-    snprintf(buf, sizeof(buf), "%02d:%02d", local_tm.tm_hour, local_tm.tm_min);
+    snprintf(buf, sizeof(buf), "%02d:%02d", localTm.tm_hour, localTm.tm_min);
     return String(buf);
 }
 
@@ -216,8 +216,8 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
         }
 
         // Determine reference "today" date in local time
-        struct tm ref_today;
-        bool hasRefToday = getLocalTime(&ref_today);
+        struct tm refToday;
+        bool hasRefToday = getLocalTime(&refToday);
 
         for (int i = 0; i < dataCount; i++) {
             const char *timeStr = timeSeries[i]["time"] | "";
@@ -226,28 +226,28 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
             int yr = 0, mo = 0, dy = 0, hr = 0, mn = 0;
             if (sscanf(timeStr, "%d-%d-%dT%d:%d", &yr, &mo, &dy, &hr, &mn) != 5) continue;
 
-            time_t utc_sec = utcToEpoch(yr, mo, dy, hr, mn, 0);
-            struct tm local_tm;
-            localtime_r(&utc_sec, &local_tm);
+            time_t utcSec = utcToEpoch(yr, mo, dy, hr, mn, 0);
+            struct tm localTm;
+            localtime_r(&utcSec, &localTm);
 
             if (!hasRefToday && i == 0) {
-                ref_today = local_tm;
+                refToday = localTm;
                 hasRefToday = true;
             }
 
-            struct tm noon_entry = local_tm;
-            noon_entry.tm_hour = 12;
-            noon_entry.tm_min = 0;
-            noon_entry.tm_sec = 0;
-            time_t entry_noon_sec = mktime(&noon_entry);
+            struct tm noonEntry = localTm;
+            noonEntry.tm_hour = 12;
+            noonEntry.tm_min = 0;
+            noonEntry.tm_sec = 0;
+            time_t entryNoonSec = mktime(&noonEntry);
 
-            struct tm noon_ref = ref_today;
-            noon_ref.tm_hour = 12;
-            noon_ref.tm_min = 0;
-            noon_ref.tm_sec = 0;
-            time_t ref_noon_sec = mktime(&noon_ref);
+            struct tm noonRef = refToday;
+            noonRef.tm_hour = 12;
+            noonRef.tm_min = 0;
+            noonRef.tm_sec = 0;
+            time_t refNoonSec = mktime(&noonRef);
 
-            int daysAhead = (int)round((difftime(entry_noon_sec, ref_noon_sec)) / 86400.0);
+            int daysAhead = (int)round((difftime(entryNoonSec, refNoonSec)) / 86400.0);
 
             if (daysAhead >= 1 && daysAhead <= FORECAST_DAYS) {
                 int d = daysAhead - 1;
@@ -269,7 +269,7 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
                     }
                     if (entryData["symbol_code"].is<int>()) {
                         int sym = entryData["symbol_code"].as<int>();
-                        int hourDiff = abs(local_tm.tm_hour - 13);
+                        int hourDiff = abs(localTm.tm_hour - 13);
                         if (hourDiff < bestSymbolHourDiff[d]) {
                             bestSymbolHourDiff[d] = hourDiff;
                             weatherData->dailyWeatherCodes[d] = sym;
@@ -290,8 +290,8 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
         };
 
         for (int d = 0; d < FORECAST_DAYS; d++) {
-            int target_wday = (ref_today.tm_wday + (d + 1)) % 7;
-            weatherData->dailyNames[d] = swedishDays[target_wday];
+            int targetWday = (refToday.tm_wday + (d + 1)) % 7;
+            weatherData->dailyNames[d] = swedishDays[targetWday];
             // A day only counts as forecast if it got at least one temperature value
             weatherData->dailyHasData[d] = weatherData->dailyMinTemp[d] != 999.0f;
             Serial.printf("Day %d (%s): HasData=%d, Min=%.1f, Max=%.1f, Precip=%.1f-%.1f, Symbol=%d\n",

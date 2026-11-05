@@ -18,7 +18,7 @@ static int minutesBetween(int h1, int m1, int h2, int m2)
   return diff;
 }
 
-void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, JsonDocument &doc, const char *transportType, String title, int xpos, int startYpos, int lineBadgeWidth, bool useInformalTime, int row_height)
+void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, JsonDocument &doc, const char *transportType, String title, int xpos, int startYpos, int lineBadgeWidth, bool useInformalTime, int rowHeight)
 {
   int maxHeight = 320;
   int ypos = startYpos;
@@ -41,7 +41,7 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
   // If no departures found, display a message
   if (departures.isNull() || departures.size() == 0)
   {
-    ypos += row_height;
+    ypos += rowHeight;
     display.setCursor(xpos, ypos);
     display.setFont(&fonts.normalTextFont);
     display.println("Inga avg\xe5ngar.");
@@ -52,10 +52,10 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
   {
     if (departure.isNull()) continue;
 
-    const char *transport_mode = departure["line"]["transport_mode"] | "";
-    if (transportType == nullptr || strcmp(transport_mode, transportType) != 0)
+    const char *transportMode = departure["line"]["transport_mode"] | "";
+    if (transportType == nullptr || strcmp(transportMode, transportType) != 0)
     {
-      continue; // Skip this departure if transport_mode is not matching the transportType
+      continue; // Skip this departure if transportMode is not matching the transportType
     }
 
     const char *destination = departure["destination"] | "Ok\xe4nd destination";
@@ -106,7 +106,7 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
 
     const int marginToOriginalTime = 25;
 
-    ypos += row_height;
+    ypos += rowHeight;
 
     // Line badge and destination are the same for every kind of departure
     drawInvertedString(display, fonts.normalTextFont, line, xpos, ypos, lineBadgeWidth);
@@ -164,7 +164,7 @@ void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, J
   }
 }
 
-bool drawDepartures(Inkplate &display, const FontCollection &fonts, const char *siteId, const char *transportType, String title, int xpos, int startYpos, int lineBadgeWidth, bool useInformalTime, int row_height)
+bool drawDepartures(Inkplate &display, const FontCollection &fonts, const char *siteId, const char *transportType, String title, int xpos, int startYpos, int lineBadgeWidth, bool useInformalTime, int rowHeight)
 {
   bool success = false;
   HTTPClient http;
@@ -180,7 +180,7 @@ bool drawDepartures(Inkplate &display, const FontCollection &fonts, const char *
     DeserializationError error = deserializeJson(doc, http.getStream());
     if (!error)
     {
-      parseAndDisplayDepartures(display, fonts, doc, transportType, title, xpos, startYpos, lineBadgeWidth, useInformalTime, row_height);
+      parseAndDisplayDepartures(display, fonts, doc, transportType, title, xpos, startYpos, lineBadgeWidth, useInformalTime, rowHeight);
       success = true;
     }
     else
@@ -188,7 +188,7 @@ bool drawDepartures(Inkplate &display, const FontCollection &fonts, const char *
       Serial.printf("JSON parse error for departures: %s\n", error.c_str());
       display.setTextColor(_BLACK, _WHITE);
       drawHeader(display, fonts.boldTextFont, title, xpos, startYpos);
-      int ypos = startYpos + row_height;
+      int ypos = startYpos + rowHeight;
       display.setCursor(xpos, ypos);
       display.setFont(&fonts.normalTextFont);
       display.print("Kunde inte tolka svaret");
@@ -203,7 +203,7 @@ bool drawDepartures(Inkplate &display, const FontCollection &fonts, const char *
     display.setTextColor(_BLACK, _WHITE);
     drawHeader(display, fonts.boldTextFont, title, xpos, startYpos);
 
-    int ypos = startYpos + row_height;
+    int ypos = startYpos + rowHeight;
     display.setCursor(xpos, ypos);
     display.setFont(&fonts.normalTextFont);
     display.printf("Fel vid API-anrop (%d):", httpCode);
@@ -249,11 +249,11 @@ bool drawDepartures(Inkplate &display, const FontCollection &fonts, const char *
   return success;
 }
 
-void drawOfflineMessage(Inkplate &display, const FontCollection &fonts, const char *title, int xpos, int startYpos, int row_height)
+void drawOfflineMessage(Inkplate &display, const FontCollection &fonts, const char *title, int xpos, int startYpos, int rowHeight)
 {
   display.setTextColor(_BLACK, _WHITE);
   drawHeader(display, fonts.boldTextFont, title, xpos, startYpos);
-  display.setCursor(xpos, startYpos + row_height);
+  display.setCursor(xpos, startYpos + rowHeight);
   display.setFont(&fonts.normalTextFont);
   display.print("Ingen WiFi-anslutning");
 }

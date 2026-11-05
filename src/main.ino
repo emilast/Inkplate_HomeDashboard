@@ -67,14 +67,14 @@ static const FontCollection fonts = {
 #endif
 
 // Trafiklab transport modes
-const char *TrainType = "TRAIN";
-const char *BusType = "BUS";
+const char *trainTransportType = "TRAIN";
+const char *busTransportType = "BUS";
 
 // Layout constants
 const int leftXpos = 35;   // Left column start position
 const int rightXpos = 430; // right column start position
 
-const int row_height = 50;
+const int rowHeight = 50;
 
 const int busLineWidth = 80;
 const int trainLineWidth = 60;
@@ -184,20 +184,20 @@ void loop()
   // is back if a scheduled fetch was skipped while offline.
   bool fetchWeather = framesDrawn == 0 || weatherFetchMissed;
   weatherFetchMissed = fetchWeather && !online;
-  drawWeather(display, fonts, leftXpos, 180, row_height, online && fetchWeather);
+  drawWeather(display, fonts, leftXpos, 180, rowHeight, online && fetchWeather);
 
   if (online)
   {
     Serial.println("Bus information from API...");
-    drawDeparturesWithRetry(BUS_SITE_ID, BusType, BUS_TITLE, 65, busLineWidth, true);
+    drawDeparturesWithRetry(BUS_SITE_ID, busTransportType, BUS_TITLE, 65, busLineWidth, true);
 
     Serial.println("Train information from API...");
-    drawDeparturesWithRetry(TRAIN_SITE_ID, TrainType, TRAIN_TITLE, 385, trainLineWidth, false);
+    drawDeparturesWithRetry(TRAIN_SITE_ID, trainTransportType, TRAIN_TITLE, 385, trainLineWidth, false);
   }
   else
   {
-    drawOfflineMessage(display, fonts, BUS_TITLE, rightXpos, 65, row_height);
-    drawOfflineMessage(display, fonts, TRAIN_TITLE, rightXpos, 385, row_height);
+    drawOfflineMessage(display, fonts, BUS_TITLE, rightXpos, 65, rowHeight);
+    drawOfflineMessage(display, fonts, TRAIN_TITLE, rightXpos, 385, rowHeight);
   }
 
   esp_task_wdt_reset();
@@ -236,7 +236,7 @@ void drawDeparturesWithRetry(const char *siteId, const char *transportType, cons
       delay(1000);
       esp_task_wdt_reset();
     }
-    if (drawDepartures(display, fonts, siteId, transportType, title, rightXpos, ypos, lineBadgeWidth, useInformalTime, row_height))
+    if (drawDepartures(display, fonts, siteId, transportType, title, rightXpos, ypos, lineBadgeWidth, useInformalTime, rowHeight))
       return;
   }
 }
@@ -248,12 +248,12 @@ void printStartupMessage(Inkplate &display, const FontCollection &fonts, int xpo
   display.setCursor(xpos, ypos);
   display.setFont(&fonts.boldTextFont);
   display.println("Ansluter till WiFi...");
-  ypos += row_height;
+  ypos += rowHeight;
 
   display.setCursor(xpos, ypos);
   display.setFont(&fonts.normalTextFont);
   int wrappedLines = drawWrappedText(display, fonts.normalTextFont, "Vid problem, st\xe4ll in WiFi via det tillf\xe4lliga n\xe4tverket:", xpos, ypos, E_INK_WIDTH - xpos - 25);
-  ypos += row_height * wrappedLines;
+  ypos += rowHeight * wrappedLines;
 
   display.setCursor(xpos, ypos);
   display.setFont(&fonts.boldTextFont);

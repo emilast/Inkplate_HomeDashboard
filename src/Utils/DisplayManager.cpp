@@ -41,15 +41,15 @@ int drawWrappedText(Inkplate &display, const GFXfont &font, const String &text, 
     display.setTextWrap(false);
     int linesDrawn = 0;
     String line = "";
-    int16_t cursor_y = y;
+    int16_t cursorY = y;
     int i = 0;
     while (i < text.length()) {
         // Handle whitespace and explicit newlines
         while (i < text.length() && (text[i] == ' ' || text[i] == '\t' || text[i] == '\r' || text[i] == '\n')) {
             if (text[i] == '\n' && line.length() > 0) {
-                display.setCursor(x, cursor_y);
+                display.setCursor(x, cursorY);
                 display.print(line);
-                cursor_y += font.yAdvance;
+                cursorY += font.yAdvance;
                 line = "";
                 linesDrawn++;
             }
@@ -68,9 +68,9 @@ int drawWrappedText(Inkplate &display, const GFXfont &font, const String &text, 
         uint16_t w, h;
         display.getTextBounds(testLine.c_str(), 0, 0, &x1, &y1, &w, &h);
         if (w > maxWidth && line.length() > 0) {
-            display.setCursor(x, cursor_y);
+            display.setCursor(x, cursorY);
             display.print(line);
-            cursor_y += font.yAdvance;
+            cursorY += font.yAdvance;
             line = word;
             linesDrawn++;
         } else {
@@ -79,7 +79,7 @@ int drawWrappedText(Inkplate &display, const GFXfont &font, const String &text, 
         i = nextSpace;
     }
     if (line.length() > 0) {
-        display.setCursor(x, cursor_y);
+        display.setCursor(x, cursorY);
         display.print(line);
         linesDrawn++;
     }

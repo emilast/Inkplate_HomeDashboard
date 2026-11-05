@@ -285,19 +285,19 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
     }
 }
 
-void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int ypos, int row_height, bool fetchNewData)
+void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int ypos, int rowHeight, bool fetchNewData)
 {
     if (fetchNewData)
     {
         weatherClient.fetchWeatherData(&weatherData, &WEATHER_LATITUDE, &WEATHER_LONGITUDE);
     }
 
-    const int label_width = 225;
+    const int labelWidth = 225;
 
     drawHeader(display, fonts.boldTextFont, "V\xE4"
                                "der",
                xpos, ypos);
-    ypos += row_height;
+    ypos += rowHeight;
 
     ypos += 20; // Add some space before the weather info
 
@@ -305,7 +305,7 @@ void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int y
     display.drawBitmap(xpos, ypos - 40, getWeatherIcon(weatherData.weatherCode), 48, 48, _BLACK);
     int wrappedLines = drawWrappedText(display, fonts.normalTextFont, weatherData.weatherDescription, xpos + 75, ypos, 325);
 
-    ypos += row_height * wrappedLines;
+    ypos += rowHeight * wrappedLines;
 
     display.drawBitmap(xpos, ypos - 35, icon_s_thermometer, 48, 48, _BLACK);
     display.setCursor(xpos + 75, ypos);
@@ -313,13 +313,13 @@ void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int y
     display.print("\xb0"
                   "C");
 
-    ypos += row_height;
+    ypos += rowHeight;
 
     ypos += 20; // Add some space before the next row
 
     display.setCursor(xpos, ypos);
     display.print("Vind:");
-    display.setCursor(xpos + label_width, ypos);
+    display.setCursor(xpos + labelWidth, ypos);
     display.print(weatherData.windSpeed, 1);
     display.println("m/s");
 
