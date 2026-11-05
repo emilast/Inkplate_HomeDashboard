@@ -285,9 +285,9 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
     }
 }
 
-void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int ypos, int row_height, int framesDrawn)
+void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int ypos, int row_height, bool fetchNewData)
 {
-    if (framesDrawn == 0)
+    if (fetchNewData)
     {
         weatherClient.fetchWeatherData(&weatherData, &WEATHER_LATITUDE, &WEATHER_LONGITUDE);
     }

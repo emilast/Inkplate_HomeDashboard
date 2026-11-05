@@ -94,6 +94,7 @@ const int busLineWidth = 80;
 const int trainLineWidth = 60;
 
 int framesDrawn = 0;
+bool weatherFetchMissed = false;
 
 void setup()
 {
@@ -152,6 +153,7 @@ void loop()
   esp_task_wdt_reset();
 
   // Active Wi-Fi check & automatic reconnect
+  bool online = true;
   if (WiFi.status() != WL_CONNECTED)
   {
     Serial.println("WiFi disconnected! Attempting reconnection...");
@@ -167,9 +169,9 @@ void loop()
 
     if (WiFi.status() != WL_CONNECTED)
     {
+      // Keep the clock and the last weather data on screen while offline
       Serial.println("WiFi reconnection failed. Skipping network operations this cycle.");
-      delay(5000);
-      return;
+      online = false;
     }
     else
     {
@@ -194,18 +196,30 @@ void loop()
   display.clearDisplay();        // Clear everytning that is inside frame buffer in ESP32
   printLocalTime(display, fonts, leftXpos, 100);
 
-  drawWeather(display, fonts, leftXpos, 180, row_height, framesDrawn);
+  // Fetch weather every FULL_REFRESH_EVERY_N_UPDATES updates, and as soon as Wi-Fi
+  // is back if a scheduled fetch was skipped while offline.
+  bool fetchWeather = framesDrawn == 0 || weatherFetchMissed;
+  weatherFetchMissed = fetchWeather && !online;
+  drawWeather(display, fonts, leftXpos, 180, row_height, online && fetchWeather);
 
-  Serial.println("Bus information from API...");
-  if (!drawDepartures(display, fonts, BUS_SITE_ID, BusType, BUS_TITLE, rightXpos, 65, busLineWidth, true, row_height))
+  if (online)
   {
-    drawDepartures(display, fonts, BUS_SITE_ID, BusType, BUS_TITLE, rightXpos, 65, busLineWidth, true, row_height);
+    Serial.println("Bus information from API...");
+    if (!drawDepartures(display, fonts, BUS_SITE_ID, BusType, BUS_TITLE, rightXpos, 65, busLineWidth, true, row_height))
+    {
+      drawDepartures(display, fonts, BUS_SITE_ID, BusType, BUS_TITLE, rightXpos, 65, busLineWidth, true, row_height);
+    }
+
+    Serial.println("Train information from API...");
+    if (!drawDepartures(display, fonts, TRAIN_SITE_ID, TrainType, TRAIN_TITLE, rightXpos, 385, trainLineWidth, false, row_height))
+    {
+      drawDepartures(display, fonts, TRAIN_SITE_ID, TrainType, TRAIN_TITLE, rightXpos, 385, trainLineWidth, false, row_height);
+    }
   }
-
-  Serial.println("Train information from API...");
-  if (!drawDepartures(display, fonts, TRAIN_SITE_ID, TrainType, TRAIN_TITLE, rightXpos, 385, trainLineWidth, false, row_height))
+  else
   {
-    drawDepartures(display, fonts, TRAIN_SITE_ID, TrainType, TRAIN_TITLE, rightXpos, 385, trainLineWidth, false, row_height);
+    drawOfflineMessage(display, fonts, BUS_TITLE, rightXpos, 65, row_height);
+    drawOfflineMessage(display, fonts, TRAIN_TITLE, rightXpos, 385, row_height);
   }
 
   esp_task_wdt_reset();

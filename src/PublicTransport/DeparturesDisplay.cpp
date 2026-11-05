@@ -260,3 +260,12 @@ bool drawDepartures(Inkplate &display, const FontCollection &fonts, const char *
   http.end();
   return success;
 }
+
+void drawOfflineMessage(Inkplate &display, const FontCollection &fonts, const char *title, int xpos, int startYpos, int row_height)
+{
+  display.setTextColor(_BLACK, _WHITE);
+  drawHeader(display, fonts.boldTextFont, title, xpos, startYpos);
+  display.setCursor(xpos, startYpos + row_height);
+  display.setFont(&fonts.normalTextFont);
+  display.print("Ingen WiFi-anslutning");
+}
