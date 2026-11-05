@@ -195,7 +195,9 @@ void WeatherClient::fetchWeatherData(WeatherData* weatherData, const float* lati
                 float humidity = currentData["relative_humidity"].as<float>();
                 weatherData->feelsLike = feelsLikeC(weatherData->currentTemp, humidity, weatherData->windSpeed);
             } else {
-                weatherData->feelsLike = feelsLikeC(weatherData->currentTemp, weatherData->precipitation, weatherData->windSpeed);
+                // Without humidity the heat index can't be computed; 0 % limits the
+                // calculation to wind chill.
+                weatherData->feelsLike = feelsLikeC(weatherData->currentTemp, 0.0f, weatherData->windSpeed);
             }
         }
 
