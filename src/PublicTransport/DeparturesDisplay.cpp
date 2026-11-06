@@ -1,149 +1,117 @@
 #include "DeparturesDisplay.h"
 #include "../Utils/DisplayManager.h"
 #include "../Utils/utils.h"
-#include <HTTPClient.h>
-
-static const char *const apiUrl = "https://transport.integration.sl.se/v1/sites/";
 
 static const int rightMargin = 25; // right margin on screen
 
-static void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, JsonDocument &doc, const char *transportType, String title, int xpos, int startYpos, int lineBadgeWidth, bool useInformalTime, int rowHeight)
+// Draws one departure row and its deviation messages, returns the new ypos
+static int drawDeparture(Inkplate &display, const FontCollection &fonts, const Departure &departure, int xpos, int ypos, int lineBadgeWidth, bool useInformalTime, int rowHeight)
 {
-    int maxHeight = 320;
-    int ypos = startYpos;
     const int rightPos = E_INK_WIDTH - rightMargin;
 
-    // Clear area
-    const int headerHeight = fonts.boldTextFont.yAdvance; // The header is printed with startYpos as baseline, so the text will appear above it
-    display.fillRect(
-        xpos,
-        startYpos - headerHeight,
-        // +3 to adjust for round errors etc when drawing fonts
-        rightPos - xpos + 3,
-        maxHeight + headerHeight,
-        _WHITE);
-
-    drawHeader(display, fonts.boldTextFont, title, xpos, ypos);
-
-    JsonArray departures = doc["departures"].as<JsonArray>();
-
-    // If no departures found, display a message
-    if (departures.isNull() || departures.size() == 0)
+    char scheduledTimeBuffer[10];
+    if (departure.scheduledHour >= 0 && departure.scheduledMinute >= 0)
     {
-        ypos += rowHeight;
+        snprintf(scheduledTimeBuffer, sizeof(scheduledTimeBuffer), "%02d:%02d", departure.scheduledHour, departure.scheduledMinute);
+    }
+    else
+    {
+        snprintf(scheduledTimeBuffer, sizeof(scheduledTimeBuffer), "--:--");
+    }
+
+    char timeBuffer[100];
+
+    if (useInformalTime)
+    {
+        snprintf(timeBuffer, sizeof(timeBuffer), "%s", departure.displayTime);
+    }
+    else if (departure.expectedHour >= 0 && departure.expectedMinute >= 0)
+    {
+        snprintf(timeBuffer, sizeof(timeBuffer), "%02d:%02d", departure.expectedHour, departure.expectedMinute);
+    }
+    else
+    {
+        snprintf(timeBuffer, sizeof(timeBuffer), "%s", departure.displayTime[0] != '\0' ? departure.displayTime : "--:--");
+    }
+
+    const int marginToOriginalTime = 25;
+
+    ypos += rowHeight;
+
+    // Line badge and destination are the same for every kind of departure
+    drawInvertedString(display, fonts.normalTextFont, departure.line, xpos, ypos, lineBadgeWidth);
+    display.printf(" %s", departure.destination);
+
+    // Only show a delay if it is more than 1 minute
+    bool delayed = departure.expectedHour >= 0 && departure.scheduledHour >= 0 &&
+                   abs(minutesBetween(departure.scheduledHour, departure.scheduledMinute, departure.expectedHour, departure.expectedMinute)) > 1;
+
+    if (departure.cancelled || delayed)
+    {
+        // Struck-through scheduled time at the right edge, and "INSTÄLLD" or the new time before it
+        int w = drawRightString(display, fonts.normalTextFont, scheduledTimeBuffer, rightPos, ypos, true);
+        const char *statusText = departure.cancelled ? "INST\xc4LLD" : timeBuffer;
+        drawRightString(display, fonts.normalTextFont, statusText, rightPos - w - marginToOriginalTime, ypos, false);
+    }
+    else
+    {
+        // On-time departure
+        drawRightString(display, fonts.normalTextFont, timeBuffer, rightPos, ypos, false);
+    }
+    display.println();
+
+    const GFXfont &deviationFont = fonts.smallTextFont;
+
+    for (int i = 0; i < departure.deviationCount; i++)
+    {
+        display.setFont(&deviationFont);
+
+        ypos += deviationFont.yAdvance;
         display.setCursor(xpos, ypos);
-        display.setFont(&fonts.normalTextFont);
+        display.printf("-");
+        int linesDrawn = drawWrappedText(display, deviationFont, departure.deviations[i], xpos + 20, ypos, E_INK_WIDTH - xpos - 20 - rightMargin);
+
+        ypos += (linesDrawn - 1) * deviationFont.yAdvance;
+    }
+
+    return ypos;
+}
+
+void drawDepartures(Inkplate &display, const FontCollection &fonts, const DepartureList &departures, const char *title, int xpos, int startYpos, int lineBadgeWidth, bool useInformalTime, int rowHeight)
+{
+    const int maxHeight = 320;
+
+    display.setTextColor(_BLACK, _WHITE);
+    drawHeader(display, fonts.boldTextFont, title, xpos, startYpos);
+
+    int ypos = startYpos + rowHeight;
+    display.setCursor(xpos, ypos);
+    display.setFont(&fonts.normalTextFont);
+
+    switch (departures.status)
+    {
+    case DepartureStatus::HttpError:
+        display.printf("Fel vid API-anrop (%d):", departures.httpCode);
+        ypos += fonts.smallTextFont.yAdvance + 4;
+        drawWrappedText(display, fonts.smallTextFont, departures.errorMessage, xpos, ypos, E_INK_WIDTH - xpos - rightMargin);
+        return;
+    case DepartureStatus::ParseError:
+        display.print("Kunde inte tolka svaret");
+        return;
+    case DepartureStatus::Ok:
+        break;
+    }
+
+    if (departures.count == 0)
+    {
         display.println("Inga avg\xe5ngar.");
         return;
     }
 
-    for (JsonObject departure : departures)
+    ypos = startYpos;
+    for (int i = 0; i < departures.count; i++)
     {
-        if (departure.isNull()) continue;
-
-        const char *transportMode = departure["line"]["transport_mode"] | "";
-        if (transportType == nullptr || strcmp(transportMode, transportType) != 0)
-        {
-            continue; // Skip this departure if transportMode is not matching the transportType
-        }
-
-        const char *destination = departure["destination"] | "Ok\xe4nd destination";
-        const int direction = departure["direction_code"] | 0;
-        const char *displayTime = departure["display"] | ""; // "17 min", "Now"
-        const char *scheduledArrival = departure["scheduled"] | "";
-        const char *expectedArrival = departure["expected"] | "";
-        const char *line = departure["line"]["designation"] | "";
-        const char *state = departure["journey"]["state"] | "";
-
-        Serial.printf("Departure for %s: Line %s, %s, direction = %d\n", destination, line, displayTime, direction);
-
-        char isoDestination[128];
-        utf8ToIso88591(destination, isoDestination, sizeof(isoDestination));
-
-        int hour = -1, minute = -1;
-        extractHourAndMinute(expectedArrival, hour, minute);
-
-        int scheduledHour = -1, scheduledMinute = -1;
-        extractHourAndMinute(scheduledArrival, scheduledHour, scheduledMinute);
-
-        display.setCursor(xpos, ypos);
-
-        char scheduledTimeBuffer[10];
-        if (scheduledHour >= 0 && scheduledMinute >= 0)
-        {
-            snprintf(scheduledTimeBuffer, sizeof(scheduledTimeBuffer), "%02d:%02d", scheduledHour, scheduledMinute);
-        }
-        else
-        {
-            snprintf(scheduledTimeBuffer, sizeof(scheduledTimeBuffer), "--:--");
-        }
-
-        char timeBuffer[100];
-
-        if (useInformalTime)
-        {
-            snprintf(timeBuffer, sizeof(timeBuffer), "%s", displayTime);
-        }
-        else if (hour >= 0 && minute >= 0)
-        {
-            snprintf(timeBuffer, sizeof(timeBuffer), "%02d:%02d", hour, minute);
-        }
-        else
-        {
-            snprintf(timeBuffer, sizeof(timeBuffer), "%s", displayTime[0] != '\0' ? displayTime : "--:--");
-        }
-
-        const int marginToOriginalTime = 25;
-
-        ypos += rowHeight;
-
-        // Line badge and destination are the same for every kind of departure
-        drawInvertedString(display, fonts.normalTextFont, line, xpos, ypos, lineBadgeWidth);
-        display.printf(" %s", isoDestination);
-
-        bool cancelled = strcmp(state, "CANCELLED") == 0;
-        // Only show a delay if it is more than 1 minute
-        bool delayed = hour >= 0 && scheduledHour >= 0 && abs(minutesBetween(scheduledHour, scheduledMinute, hour, minute)) > 1;
-
-        if (cancelled || delayed)
-        {
-            // Struck-through scheduled time at the right edge, and "INSTÄLLD" or the new time before it
-            int w = drawRightString(display, fonts.normalTextFont, scheduledTimeBuffer, rightPos, ypos, true);
-            const char *statusText = cancelled ? "INST\xc4LLD" : timeBuffer;
-            drawRightString(display, fonts.normalTextFont, statusText, rightPos - w - marginToOriginalTime, ypos, false);
-        }
-        else
-        {
-            // On-time departure
-            drawRightString(display, fonts.normalTextFont, timeBuffer, rightPos, ypos, false);
-        }
-        display.println();
-
-        const GFXfont &deviationFont = fonts.smallTextFont;
-
-        // Show deviation messages
-        JsonArray deviations = departure["deviations"].as<JsonArray>();
-        if (!deviations.isNull())
-        {
-            for (JsonObject deviation : deviations)
-            {
-                if (deviation.isNull()) continue;
-                const char *deviationMessage = deviation["message"] | "";
-                if (deviationMessage[0] == '\0') continue;
-
-                char isoDeviationMessage[256];
-                utf8ToIso88591(deviationMessage, isoDeviationMessage, sizeof(isoDeviationMessage));
-
-                display.setFont(&deviationFont);
-
-                ypos += deviationFont.yAdvance;
-                display.setCursor(xpos, ypos);
-                display.printf("-");
-                int linesDrawn = drawWrappedText(display, fonts.smallTextFont, isoDeviationMessage, xpos + 20, ypos, E_INK_WIDTH - xpos - 20 - rightMargin);
-
-                ypos += (linesDrawn - 1) * deviationFont.yAdvance;
-            }
-        }
+        ypos = drawDeparture(display, fonts, departures.departures[i], xpos, ypos, lineBadgeWidth, useInformalTime, rowHeight);
 
         // Limit the number of rows
         if ((ypos - startYpos) >= maxHeight)
@@ -151,91 +119,6 @@ static void parseAndDisplayDepartures(Inkplate &display, const FontCollection &f
             break;
         }
     }
-}
-
-bool drawDepartures(Inkplate &display, const FontCollection &fonts, const char *siteId, const char *transportType, String title, int xpos, int startYpos, int lineBadgeWidth, bool useInformalTime, int rowHeight)
-{
-    bool success = false;
-    HTTPClient http;
-    http.useHTTP10(true); // Disable chunked transfer encoding, required when parsing from getStream()
-    char requestUrl[256];
-    snprintf(requestUrl, sizeof(requestUrl), "%s%s/departures?transport=%s&nocache=%u",
-             apiUrl, siteId, transportType, (unsigned int)random(1000, 9999));
-    http.begin(requestUrl);
-    int httpCode = http.GET();
-    if (httpCode == HTTP_CODE_OK)
-    {
-        JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, http.getStream());
-        if (!error)
-        {
-            parseAndDisplayDepartures(display, fonts, doc, transportType, title, xpos, startYpos, lineBadgeWidth, useInformalTime, rowHeight);
-            success = true;
-        }
-        else
-        {
-            Serial.printf("JSON parse error for departures: %s\n", error.c_str());
-            display.setTextColor(_BLACK, _WHITE);
-            drawHeader(display, fonts.boldTextFont, title, xpos, startYpos);
-            int ypos = startYpos + rowHeight;
-            display.setCursor(xpos, ypos);
-            display.setFont(&fonts.normalTextFont);
-            display.print("Kunde inte tolka svaret");
-        }
-    }
-    else
-    {
-        // Show error message
-        String response = http.getString();
-        Serial.println("Error on HTTP request: " + String(httpCode) + " " + String(requestUrl) + " " + response);
-
-        display.setTextColor(_BLACK, _WHITE);
-        drawHeader(display, fonts.boldTextFont, title, xpos, startYpos);
-
-        int ypos = startYpos + rowHeight;
-        display.setCursor(xpos, ypos);
-        display.setFont(&fonts.normalTextFont);
-        display.printf("Fel vid API-anrop (%d):", httpCode);
-
-        ypos += fonts.smallTextFont.yAdvance + 4;
-
-        String errMsg = "";
-        if (response.length() > 0)
-        {
-            JsonDocument errDoc;
-            DeserializationError err = deserializeJson(errDoc, response);
-            if (!err)
-            {
-                if (errDoc["message"].is<const char *>())
-                {
-                    errMsg = errDoc["message"].as<const char *>();
-                }
-                else if (errDoc["error"].is<const char *>())
-                {
-                    errMsg = errDoc["error"].as<const char *>();
-                }
-                else if (errDoc["description"].is<const char *>())
-                {
-                    errMsg = errDoc["description"].as<const char *>();
-                }
-            }
-
-            if (errMsg.length() == 0)
-            {
-                errMsg = response.substring(0, 200);
-            }
-        }
-        else
-        {
-            errMsg = "(Tomt svar)";
-        }
-
-        char isoErrMsg[256];
-        utf8ToIso88591(errMsg.c_str(), isoErrMsg, sizeof(isoErrMsg));
-        drawWrappedText(display, fonts.smallTextFont, isoErrMsg, xpos, ypos, E_INK_WIDTH - xpos - rightMargin);
-    }
-    http.end();
-    return success;
 }
 
 void drawOfflineMessage(Inkplate &display, const FontCollection &fonts, const char *title, int xpos, int startYpos, int rowHeight)

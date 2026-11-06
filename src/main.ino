@@ -29,6 +29,7 @@ Inkplate display(DISPLAY_MODE); // 1-bit or 3-bit (grayscale) mode, see MONOCHRO
 #include "Clock/TimeUtils.h"
 #include "Weather/WeatherClient.h"
 #include "Weather/WeatherDisplay.h"
+#include "PublicTransport/DeparturesClient.h"
 #include "PublicTransport/DeparturesDisplay.h"
 
 #if defined(ARDUINO_INKPLATE10) || defined(ARDUINO_INKPLATE10V2)
@@ -79,8 +80,9 @@ static const int trainLineWidth = 60;
 static int framesDrawn = 0;
 static bool weatherFetchMissed = false;
 static WeatherData weatherData; // Last fetched forecast, kept on screen between fetches
+static DepartureList departures; // Reused for each stop, too large for the loop task's stack
 
-static void drawDeparturesWithRetry(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime);
+static void fetchAndDrawDepartures(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime);
 static void printStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos);
 
 void setup()
@@ -194,10 +196,10 @@ void loop()
     if (online)
     {
         Serial.println("Bus information from API...");
-        drawDeparturesWithRetry(BUS_SITE_ID, busTransportType, BUS_TITLE, 65, busLineWidth, true);
+        fetchAndDrawDepartures(BUS_SITE_ID, busTransportType, BUS_TITLE, 65, busLineWidth, true);
 
         Serial.println("Train information from API...");
-        drawDeparturesWithRetry(TRAIN_SITE_ID, trainTransportType, TRAIN_TITLE, 385, trainLineWidth, false);
+        fetchAndDrawDepartures(TRAIN_SITE_ID, trainTransportType, TRAIN_TITLE, 385, trainLineWidth, false);
     }
     else
     {
@@ -230,9 +232,9 @@ void loop()
     esp_task_wdt_reset();
 }
 
-// Draws one departures section, trying once more after a short pause if the API
-// call fails (the error message from a failed attempt is drawn over on success).
-static void drawDeparturesWithRetry(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime)
+// Fetches and draws one departures section, trying once more after a short pause
+// if the API call fails.
+static void fetchAndDrawDepartures(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime)
 {
     for (int attempt = 0; attempt < 2; attempt++)
     {
@@ -241,9 +243,10 @@ static void drawDeparturesWithRetry(const char *siteId, const char *transportTyp
             delay(1000);
             esp_task_wdt_reset();
         }
-        if (drawDepartures(display, fonts, siteId, transportType, title, rightXpos, ypos, lineBadgeWidth, useInformalTime, rowHeight))
-            return;
+        if (fetchDepartures(departures, siteId, transportType))
+            break;
     }
+    drawDepartures(display, fonts, departures, title, rightXpos, ypos, lineBadgeWidth, useInformalTime, rowHeight);
 }
 
 static void printStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
