@@ -24,9 +24,9 @@
 Inkplate display(DISPLAY_MODE); // 1-bit or 3-bit (grayscale) mode, see MONOCHROME in config.h
 
 #include "Utils/FontCollection.h"
-#include "Utils/DisplayManager.h"
+#include "Utils/DrawUtils.h"
 
-#include "Clock/TimeUtils.h"
+#include "Clock/ClockDisplay.h"
 #include "Weather/WeatherClient.h"
 #include "Weather/WeatherDisplay.h"
 #include "PublicTransport/DeparturesClient.h"
@@ -83,7 +83,7 @@ static WeatherData weatherData; // Last fetched forecast, kept on screen between
 static DepartureList departures; // Reused for each stop, too large for the loop task's stack
 
 static void fetchAndDrawDepartures(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime);
-static void printStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos);
+static void drawStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos);
 
 void setup()
 {
@@ -94,7 +94,7 @@ void setup()
                             //(NOTE! This does not clean image on screen, it only clears it in the frame buffer inside
                             // ESP32).
 
-    printStartupMessage(display, fonts, 100, 200);
+    drawStartupMessage(display, fonts, 100, 200);
 
     display.display(); // Clear everything that has previously been on a screen
 
@@ -181,7 +181,7 @@ void loop()
     }
 
     display.clearDisplay(); // Clear the frame buffer in ESP32 memory
-    printLocalTime(display, fonts, leftXpos, 100);
+    drawClock(display, fonts, leftXpos, 100);
 
     // Fetch weather every FULL_REFRESH_EVERY_N_UPDATES updates, and as soon as Wi-Fi
     // is back if a scheduled fetch was skipped while offline.
@@ -249,7 +249,7 @@ static void fetchAndDrawDepartures(const char *siteId, const char *transportType
     drawDepartures(display, fonts, departures, title, rightXpos, ypos, lineBadgeWidth, useInformalTime, rowHeight);
 }
 
-static void printStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
+static void drawStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
 {
     display.setTextColor(_BLACK, _WHITE);
 

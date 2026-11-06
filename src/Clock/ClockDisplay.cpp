@@ -1,8 +1,8 @@
-#include "TimeUtils.h"
+#include "ClockDisplay.h"
 #include <time.h>
 #include <Inkplate.h>
 
-void printLocalTime(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
+void drawClock(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
 {
     struct tm timeinfo;
     if (!getLocalTime(&timeinfo))

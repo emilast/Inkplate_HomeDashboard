@@ -1,5 +1,5 @@
 #include "DeparturesDisplay.h"
-#include "../Utils/DisplayManager.h"
+#include "../Utils/DrawUtils.h"
 #include "../Utils/utils.h"
 
 static constexpr int rightMargin = 25; // right margin on screen

@@ -1,7 +1,7 @@
 #include "Inkplate.h"
 
 #include "WeatherDisplay.h"
-#include "../Utils/DisplayManager.h"
+#include "../Utils/DrawUtils.h"
 
 #include "icons/icon_s_clear_sky.h"
 #include "icons/icon_s_partly_cloudy.h"
