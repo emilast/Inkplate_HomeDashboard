@@ -1,39 +1,10 @@
 #include "DisplayManager.h"
 
-void initializeDisplay(Inkplate &display, const GFXfont &font)
-{
-    display.begin();
-    display.setFont(&font);
-    display.clearDisplay();
-    display.display();
-    display.setTextSize(1);
-    display.setTextColor(_BLACK, _WHITE);
-    display.setTextWrap(false);
-}
-
-void clearAndPrepareDisplay(Inkplate &display)
-{
-    display.clearDisplay();
-}
-
 void drawHeader(Inkplate &display, const GFXfont &font, String text, int xpos, int ypos)
 {
     display.setCursor(xpos, ypos);
     display.setFont(&font);
     display.print(text);
-    display.setFont(&font);
-}
-
-int drawStrikethrough(Inkplate &display, const GFXfont &font, char *text, int xpos, int ypos)
-{
-    display.setFont(&font);
-    display.setCursor(xpos, ypos);
-    display.print(text);
-    int16_t x1, y1;
-    uint16_t w, h;
-    display.getTextBounds(text, xpos, ypos, &x1, &y1, &w, &h);
-    display.fillRect(xpos, ypos - (h / 2), w, 3, _BLACK);
-    return w;
 }
 
 int drawRightString(Inkplate &display, const GFXfont &font, const char *buf, int x, int y, bool strikethrough)
@@ -43,7 +14,8 @@ int drawRightString(Inkplate &display, const GFXfont &font, const char *buf, int
     uint16_t w, h;
     display.getTextBounds(buf, x, y, &x1, &y1, &w, &h);
     display.setCursor(x - w, y);
-    if (strikethrough) {
+    if (strikethrough)
+    {
         display.fillRect(x - w, y - (h / 2), w, 3, _BLACK);
     }
     display.print(buf);
@@ -65,20 +37,24 @@ void drawInvertedString(Inkplate &display, const GFXfont &font, const char *buf,
     display.setTextColor(_BLACK, _WHITE);
 }
 
-int drawWrappedText(Inkplate &display, const GFXfont &font, const String &text, int16_t x, int16_t y, int16_t maxWidth) {
+int drawWrappedText(Inkplate &display, const GFXfont &font, const String &text, int16_t x, int16_t y, int16_t maxWidth)
+{
     display.setFont(&font);
     display.setTextWrap(false);
     int linesDrawn = 0;
     String line = "";
-    int16_t cursor_y = y;
+    int16_t cursorY = y;
     int i = 0;
-    while (i < text.length()) {
+    while (i < text.length())
+    {
         // Handle whitespace and explicit newlines
-        while (i < text.length() && (text[i] == ' ' || text[i] == '\t' || text[i] == '\r' || text[i] == '\n')) {
-            if (text[i] == '\n' && line.length() > 0) {
-                display.setCursor(x, cursor_y);
+        while (i < text.length() && (text[i] == ' ' || text[i] == '\t' || text[i] == '\r' || text[i] == '\n'))
+        {
+            if (text[i] == '\n' && line.length() > 0)
+            {
+                display.setCursor(x, cursorY);
                 display.print(line);
-                cursor_y += font.yAdvance;
+                cursorY += font.yAdvance;
                 line = "";
                 linesDrawn++;
             }
@@ -88,7 +64,8 @@ int drawWrappedText(Inkplate &display, const GFXfont &font, const String &text, 
 
         // Find end of current word
         int nextSpace = i;
-        while (nextSpace < text.length() && text[nextSpace] != ' ' && text[nextSpace] != '\t' && text[nextSpace] != '\r' && text[nextSpace] != '\n') {
+        while (nextSpace < text.length() && text[nextSpace] != ' ' && text[nextSpace] != '\t' && text[nextSpace] != '\r' && text[nextSpace] != '\n')
+        {
             nextSpace++;
         }
         String word = text.substring(i, nextSpace);
@@ -96,19 +73,23 @@ int drawWrappedText(Inkplate &display, const GFXfont &font, const String &text, 
         int16_t x1, y1;
         uint16_t w, h;
         display.getTextBounds(testLine.c_str(), 0, 0, &x1, &y1, &w, &h);
-        if (w > maxWidth && line.length() > 0) {
-            display.setCursor(x, cursor_y);
+        if (w > maxWidth && line.length() > 0)
+        {
+            display.setCursor(x, cursorY);
             display.print(line);
-            cursor_y += font.yAdvance;
+            cursorY += font.yAdvance;
             line = word;
             linesDrawn++;
-        } else {
+        }
+        else
+        {
             line = testLine;
         }
         i = nextSpace;
     }
-    if (line.length() > 0) {
-        display.setCursor(x, cursor_y);
+    if (line.length() > 0)
+    {
+        display.setCursor(x, cursorY);
         display.print(line);
         linesDrawn++;
     }
