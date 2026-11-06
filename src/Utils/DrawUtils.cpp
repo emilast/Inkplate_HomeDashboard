@@ -1,6 +1,6 @@
-#include "DisplayManager.h"
+#include "DrawUtils.h"
 
-void drawHeader(Inkplate &display, const GFXfont &font, String text, int xpos, int ypos)
+void drawHeader(Inkplate &display, const GFXfont &font, const char *text, int xpos, int ypos)
 {
     display.setCursor(xpos, ypos);
     display.setFont(&font);

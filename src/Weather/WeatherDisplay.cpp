@@ -1,8 +1,7 @@
 #include "Inkplate.h"
 
 #include "WeatherDisplay.h"
-#include "../Utils/DisplayManager.h"
-#include "WeatherClient.h"
+#include "../Utils/DrawUtils.h"
 
 #include "icons/icon_s_clear_sky.h"
 #include "icons/icon_s_partly_cloudy.h"
@@ -13,11 +12,7 @@
 #include "icons/icon_s_storm.h"
 #include "icons/icon_s_thermometer.h"
 
-// Weather
-WeatherClient weatherClient;
-WeatherData weatherData;
-
-const uint8_t *getWeatherIcon(int code)
+static const uint8_t *getWeatherIcon(int code)
 {
     switch (code)
     {
@@ -61,7 +56,7 @@ const uint8_t *getWeatherIcon(int code)
     }
 }
 
-int getTemperatureGraphY(float temperature, float paddedTempMin, float paddedTempMax, int chartBottom, int graphHeight, int marginY)
+static int getTemperatureGraphY(float temperature, float paddedTempMin, float paddedTempMax, int chartBottom, int graphHeight, int marginY)
 {
     float tempRange = paddedTempMax - paddedTempMin;
     if (tempRange == 0)
@@ -70,7 +65,7 @@ int getTemperatureGraphY(float temperature, float paddedTempMin, float paddedTem
 }
 
 // Draw dithered gray bar
-void drawBarGray(Adafruit_GFX &display, int x, int chartBottom, int barHeight, int xStep)
+static void drawBarGray(Adafruit_GFX &display, int x, int chartBottom, int barHeight, int xStep)
 {
 #if MONOCHROME
     // In monochrome mode, draw dithered pattern for gray
@@ -91,8 +86,10 @@ void drawBarGray(Adafruit_GFX &display, int x, int chartBottom, int barHeight, i
 #endif
 }
 
+static void drawDailyForecast(Inkplate &display, const FontCollection &fonts, const WeatherData &weather, int xpos, int ypos, int widgetWidth);
+
 // --- Draw Temperature & Precipitation Graph ---
-void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, WeatherData *weatherData, float currentTemp, int xpos, int ypos, int graphWidth, int graphHeight)
+static void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, const WeatherData &weather, int xpos, int ypos, int graphWidth, int graphHeight)
 {
     // Layout values for graph placement
     int graphX = xpos;
@@ -113,15 +110,15 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
     // Find actual min/max for temperature and precipitation
     for (int i = 0; i < GRAPH_HOURS; i++)
     {
-        if (weatherData->hourlyTemps[i] < actualTempMin)
-            actualTempMin = weatherData->hourlyTemps[i];
-        if (weatherData->hourlyTemps[i] > actualTempMax)
-            actualTempMax = weatherData->hourlyTemps[i];
+        if (weather.hourlyTemps[i] < actualTempMin)
+            actualTempMin = weather.hourlyTemps[i];
+        if (weather.hourlyTemps[i] > actualTempMax)
+            actualTempMax = weather.hourlyTemps[i];
 
         // Exclude the last value from precipMax since it's not rendered
-        if (i < GRAPH_HOURS - 1 && weatherData->hourlyPrecip[i] > precipMax)
+        if (i < GRAPH_HOURS - 1 && weather.hourlyPrecip[i] > precipMax)
         {
-            precipMax = weatherData->hourlyPrecip[i];
+            precipMax = weather.hourlyPrecip[i];
             precipHourIx = i; // Store the index of the hour with max precipitation
         }
     }
@@ -152,7 +149,7 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
     display.drawLine(chartLeft, yMaxActual, chartLeft + graphWidth - 2 * marginX, yMaxActual, _BLACK);
 
     // Current temperature line
-    int yCurrent = getTemperatureGraphY(currentTemp, paddedTempMin, paddedTempMax, chartBottom, graphHeight, marginY);
+    int yCurrent = getTemperatureGraphY(weather.currentTemp, paddedTempMin, paddedTempMax, chartBottom, graphHeight, marginY);
 
 #if MONOCHROME
     display.drawThickLine(chartLeft, yCurrent, chartLeft + graphWidth - 2 * marginX, yCurrent, _BLACK, 3);
@@ -163,7 +160,7 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
     // Log min, max and current y coordinates for debugging
     Serial.printf("Min Y: %d, Max Y: %d, Current Y: %d\n", yMinActual, yMaxActual, yCurrent);
     // Log the actual min and max temperatures
-    Serial.printf("Actual Min Temp: %.1f, Actual Max Temp: %.1f, Current Temp: %.1f\n", actualTempMin, actualTempMax, currentTemp);
+    Serial.printf("Actual Min Temp: %.1f, Actual Max Temp: %.1f, Current Temp: %.1f\n", actualTempMin, actualTempMax, weather.currentTemp);
 
     // Draw Min temperature label
     display.setCursor(chartLeft - 70, yMinActual + 7);
@@ -192,21 +189,21 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
     }
 
     display.setCursor(chartLeft - 70, yCurrentLabel);
-    display.print(currentTemp, 1); // Show temperature with 1 decimal place
+    display.print(weather.currentTemp, 1); // Show temperature with 1 decimal place
     display.print("\xb0");
 
     // Draw precipitation bars
     for (int i = 0; i < GRAPH_HOURS - 1; i++) // -1 to avoid out of bounds access, will render one bar too few but that's okay
     {
-        if (weatherData->hourlyPrecip[i] == 0)
+        if (weather.hourlyPrecip[i] == 0)
             continue; // Skip drawing bars for zero precipitation
 
         int x = chartLeft + i * xStep;
-        int barHeightMin = (precipScale > 0) ? (weatherData->hourlyPrecipMin[i] / precipScale) * (marginY) : 0;
-        int barHeight = (precipScale > 0) ? (weatherData->hourlyPrecip[i] / precipScale) * (marginY) : 0;
+        int barHeightMin = (precipScale > 0) ? (weather.hourlyPrecipMin[i] / precipScale) * (marginY) : 0;
+        int barHeight = (precipScale > 0) ? (weather.hourlyPrecip[i] / precipScale) * (marginY) : 0;
 
-        Serial.printf("Min precipitation for hour %d: %f, barHeight: %d\n", i, weatherData->hourlyPrecipMin[i], barHeightMin);
-        Serial.printf("Max precipitation for hour %d: %f, barHeight: %d\n", i, weatherData->hourlyPrecip[i], barHeight);
+        Serial.printf("Min precipitation for hour %d: %f, barHeight: %d\n", i, weather.hourlyPrecipMin[i], barHeightMin);
+        Serial.printf("Max precipitation for hour %d: %f, barHeight: %d\n", i, weather.hourlyPrecip[i], barHeight);
 
         // Draw the precipitation bar
         drawBarGray(display, x, chartBottom, barHeight, xStep);
@@ -225,7 +222,7 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
 
             // Prepare precipitation text and measure its width so it won't overflow
             char buf[32];
-            snprintf(buf, sizeof(buf), "%.1f - %.1f", weatherData->hourlyPrecipMin[i], weatherData->hourlyPrecip[i]);
+            snprintf(buf, sizeof(buf), "%.1f - %.1f", weather.hourlyPrecipMin[i], weather.hourlyPrecip[i]);
 
             int16_t tbx, tby;
             uint16_t tbw, tbh;
@@ -255,8 +252,8 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
         int x1 = chartLeft + i * xStep;
         int x2 = chartLeft + (i + 1) * xStep;
 
-        int y1 = getTemperatureGraphY(weatherData->hourlyTemps[i], paddedTempMin, paddedTempMax, chartBottom, graphHeight, marginY);
-        int y2 = getTemperatureGraphY(weatherData->hourlyTemps[i + 1], paddedTempMin, paddedTempMax, chartBottom, graphHeight, marginY);
+        int y1 = getTemperatureGraphY(weather.hourlyTemps[i], paddedTempMin, paddedTempMax, chartBottom, graphHeight, marginY);
+        int y2 = getTemperatureGraphY(weather.hourlyTemps[i + 1], paddedTempMin, paddedTempMax, chartBottom, graphHeight, marginY);
 
         // Draw a thicker line by drawing multiple parallel lines
         for (int offset = -1; offset <= 1; ++offset)
@@ -272,7 +269,7 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
         // Draw vertical grid lines for each hour
         // hourlyTimes are already in local time ("HH:MM"); -1 if unknown
         int localHour = -1, localMin = 0;
-        sscanf(weatherData->hourlyTimes[i].c_str(), "%d:%d", &localHour, &localMin);
+        sscanf(weather.hourlyTimes[i].c_str(), "%d:%d", &localHour, &localMin);
 
         if (localHour == 0 || localHour == 12)
         {
@@ -289,13 +286,8 @@ void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, 
     }
 }
 
-void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int ypos, int rowHeight, bool fetchNewData)
+void drawWeather(Inkplate &display, const FontCollection &fonts, const WeatherData &weather, int xpos, int ypos, int rowHeight)
 {
-    if (fetchNewData)
-    {
-        weatherClient.fetchWeatherData(&weatherData, &WEATHER_LATITUDE, &WEATHER_LONGITUDE);
-    }
-
     const int labelWidth = 225;
 
     drawHeader(display, fonts.boldTextFont, "V\xE4"
@@ -305,15 +297,15 @@ void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int y
 
     ypos += 20; // Add some space before the weather info
 
-    Serial.println("Weather code: " + String(weatherData.weatherCode));
-    display.drawBitmap(xpos, ypos - 40, getWeatherIcon(weatherData.weatherCode), 48, 48, _BLACK);
-    int wrappedLines = drawWrappedText(display, fonts.normalTextFont, weatherData.weatherDescription, xpos + 75, ypos, 325);
+    Serial.println("Weather code: " + String(weather.weatherCode));
+    display.drawBitmap(xpos, ypos - 40, getWeatherIcon(weather.weatherCode), 48, 48, _BLACK);
+    int wrappedLines = drawWrappedText(display, fonts.normalTextFont, weather.weatherDescription, xpos + 75, ypos, 325);
 
     ypos += rowHeight * wrappedLines;
 
     display.drawBitmap(xpos, ypos - 35, icon_s_thermometer, 48, 48, _BLACK);
     display.setCursor(xpos + 75, ypos);
-    display.print(String(weatherData.currentTemp, 1));
+    display.print(String(weather.currentTemp, 1));
     display.print("\xb0"
                   "C");
 
@@ -324,7 +316,7 @@ void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int y
     display.setCursor(xpos, ypos);
     display.print("Vind:");
     display.setCursor(xpos + labelWidth, ypos);
-    display.print(weatherData.windSpeed, 1);
+    display.print(weather.windSpeed, 1);
     display.println("m/s");
 
     // Fit the graph and the daily forecast into the space left on the panel.
@@ -343,18 +335,17 @@ void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int y
     if (graphHeight > maxGraphHeight)
         graphHeight = maxGraphHeight;
 
-    drawTemperaturePrecipGraph(display, fonts, &weatherData, weatherData.currentTemp, xpos + 20, ypos, 350, graphHeight);
+    drawTemperaturePrecipGraph(display, fonts, weather, xpos + 20, ypos, 350, graphHeight);
 
     if (showForecast)
     {
-        drawDailyForecast(display, fonts, &weatherData, xpos, ypos + graphHeight + graphToForecastGap, 370);
+        drawDailyForecast(display, fonts, weather, xpos, ypos + graphHeight + graphToForecastGap, 370);
     }
 }
 
-void drawDailyForecast(Inkplate &display, const FontCollection &fonts, WeatherData *weatherData, int xpos, int ypos, int widgetWidth)
+static void drawDailyForecast(Inkplate &display, const FontCollection &fonts, const WeatherData &weather, int xpos, int ypos, int widgetWidth)
 {
-    if (!weatherData) return;
-    if (weatherData->dailyNames[0].length() == 0) return;
+    if (weather.dailyNames[0].length() == 0) return;
 
     int numDays = FORECAST_DAYS;
     int colWidth = widgetWidth / numDays;
@@ -369,13 +360,13 @@ void drawDailyForecast(Inkplate &display, const FontCollection &fonts, WeatherDa
         display.setTextColor(_BLACK, _WHITE);
         int16_t x1, y1;
         uint16_t w, h;
-        display.getTextBounds(weatherData->dailyNames[d].c_str(), 0, 0, &x1, &y1, &w, &h);
+        display.getTextBounds(weather.dailyNames[d].c_str(), 0, 0, &x1, &y1, &w, &h);
         display.setCursor(colCenterX - (w / 2), ypos + 17);
-        display.print(weatherData->dailyNames[d]);
+        display.print(weather.dailyNames[d]);
 
         int iconY = ypos + 20;
 
-        if (!weatherData->dailyHasData[d])
+        if (!weather.dailyHasData[d])
         {
             // No forecast entries for this day: say so instead of showing made-up values
             display.getTextBounds("-", 0, 0, &x1, &y1, &w, &h);
@@ -386,12 +377,12 @@ void drawDailyForecast(Inkplate &display, const FontCollection &fonts, WeatherDa
 
         // 2. Weather Icon (48x48)
         int iconX = colCenterX - 24;
-        display.drawBitmap(iconX, iconY, getWeatherIcon(weatherData->dailyWeatherCodes[d]), 48, 48, _BLACK);
+        display.drawBitmap(iconX, iconY, getWeatherIcon(weather.dailyWeatherCodes[d]), 48, 48, _BLACK);
 
         // 3. Min/Max Temperature
         display.setFont(&fonts.smallTextFont);
         char tempBuf[32];
-        snprintf(tempBuf, sizeof(tempBuf), "%.0f\xb0 / %.0f\xb0", weatherData->dailyMaxTemp[d], weatherData->dailyMinTemp[d]);
+        snprintf(tempBuf, sizeof(tempBuf), "%.0f\xb0 / %.0f\xb0", weather.dailyMaxTemp[d], weather.dailyMinTemp[d]);
         display.getTextBounds(tempBuf, 0, 0, &x1, &y1, &w, &h);
         display.setCursor(colCenterX - (w / 2), iconY + 48 + 22);
         display.print(tempBuf);
@@ -399,8 +390,8 @@ void drawDailyForecast(Inkplate &display, const FontCollection &fonts, WeatherDa
         // 4. Daily Precipitation, as a min-max range. Whole millimetres above 10 mm
         // keep the text within the column.
         char precipBuf[32];
-        float pMin = weatherData->dailyPrecipMin[d];
-        float pMax = weatherData->dailyPrecip[d];
+        float pMin = weather.dailyPrecipMin[d];
+        float pMax = weather.dailyPrecip[d];
         if (pMax < 0.05f)
             snprintf(precipBuf, sizeof(precipBuf), "0 mm");
         else if (pMax >= 10.0f)

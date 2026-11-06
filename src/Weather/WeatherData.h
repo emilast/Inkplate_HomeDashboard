@@ -2,13 +2,11 @@
 
 #include <Arduino.h>
 
-#define GRAPH_HOURS 24
-#define FORECAST_DAYS 3
+static constexpr int GRAPH_HOURS = 24;
+static constexpr int FORECAST_DAYS = 3;
 
-class WeatherData
+struct WeatherData
 {
-  public:
-    // Member variables
     float currentTemp;
     float feelsLike;
     float precipitation;

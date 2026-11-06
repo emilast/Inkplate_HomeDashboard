@@ -9,7 +9,7 @@
 #include <Inkplate.h>
 
 // Function to get weather description based on the weather code
-String WeatherClient::getWeatherDescription(int code)
+static String getWeatherDescription(int code)
 {
     switch (code)
     {
@@ -108,12 +108,12 @@ String WeatherClient::getWeatherDescription(int code)
     }
 }
 
-float windChill(float tempC, float windSpeedKph)
+static float windChill(float tempC, float windSpeedKph)
 {
     return 13.12 + 0.6215 * tempC - 11.37 * pow(windSpeedKph, 0.16) + 0.3965 * tempC * pow(windSpeedKph, 0.16);
 }
 
-float heatIndex(float tempC, float humidity)
+static float heatIndex(float tempC, float humidity)
 {
     float T = tempC;
     float R = humidity;
@@ -129,7 +129,7 @@ float heatIndex(float tempC, float humidity)
            -0.000003582 * pow(T, 2) * pow(R, 2);
 }
 
-float feelsLikeC(float tempC, float humidity, float windSpeedMps)
+static float feelsLikeC(float tempC, float humidity, float windSpeedMps)
 {
     float windKph = windSpeedMps * 3.6;
 
@@ -170,15 +170,13 @@ static time_t localNoon(struct tm t)
     return mktime(&t);
 }
 
-// Function to fetch weather data from SMHI API (SNOW1gv1)
-void WeatherClient::fetchWeatherData(WeatherData *weatherData, const float *latitude, const float *longitude)
+// Fetches the forecast from the SMHI API (SNOW1gv1)
+bool fetchWeather(WeatherData &weather, float latitude, float longitude)
 {
-    if (!weatherData || !latitude || !longitude) return;
-
     char url[320];
     snprintf(url, sizeof(url),
              "https://opendata-download-metfcst.smhi.se/api/category/snow1g/version/1/geotype/point/lon/%.6f/lat/%.6f/data.json?parameters=air_temperature,wind_speed,precipitation_amount_max,precipitation_amount_min,symbol_code,relative_humidity&timeseries=96",
-             *longitude, *latitude);
+             longitude, latitude);
 
     Serial.printf("Fetching weather data from: %s\n", url);
 
@@ -205,7 +203,7 @@ void WeatherClient::fetchWeatherData(WeatherData *weatherData, const float *lati
         {
             Serial.printf("JSON deserialization error: %s\n", error.c_str());
             http.end();
-            return;
+            return false;
         }
 
         JsonArray timeSeries = doc["timeSeries"].as<JsonArray>();
@@ -213,7 +211,7 @@ void WeatherClient::fetchWeatherData(WeatherData *weatherData, const float *lati
         {
             Serial.println("No time series data available.");
             http.end();
-            return;
+            return false;
         }
 
         int dataCount = timeSeries.size();
@@ -228,31 +226,31 @@ void WeatherClient::fetchWeatherData(WeatherData *weatherData, const float *lati
         {
             if (currentData["air_temperature"].is<float>())
             {
-                weatherData->currentTemp = currentData["air_temperature"].as<float>();
+                weather.currentTemp = currentData["air_temperature"].as<float>();
             }
             if (currentData["wind_speed"].is<float>())
             {
-                weatherData->windSpeed = currentData["wind_speed"].as<float>();
+                weather.windSpeed = currentData["wind_speed"].as<float>();
             }
             if (currentData["precipitation_amount_max"].is<float>())
             {
-                weatherData->precipitation = currentData["precipitation_amount_max"].as<float>();
+                weather.precipitation = currentData["precipitation_amount_max"].as<float>();
             }
             if (currentData["symbol_code"].is<int>())
             {
-                weatherData->weatherCode = currentData["symbol_code"].as<int>();
-                weatherData->weatherDescription = getWeatherDescription(weatherData->weatherCode);
+                weather.weatherCode = currentData["symbol_code"].as<int>();
+                weather.weatherDescription = getWeatherDescription(weather.weatherCode);
             }
             if (currentData["relative_humidity"].is<float>())
             {
                 float humidity = currentData["relative_humidity"].as<float>();
-                weatherData->feelsLike = feelsLikeC(weatherData->currentTemp, humidity, weatherData->windSpeed);
+                weather.feelsLike = feelsLikeC(weather.currentTemp, humidity, weather.windSpeed);
             }
             else
             {
                 // Without humidity the heat index can't be computed; 0 % limits the
                 // calculation to wind chill.
-                weatherData->feelsLike = feelsLikeC(weatherData->currentTemp, 0.0f, weatherData->windSpeed);
+                weather.feelsLike = feelsLikeC(weather.currentTemp, 0.0f, weather.windSpeed);
             }
         }
 
@@ -265,33 +263,33 @@ void WeatherClient::fetchWeatherData(WeatherData *weatherData, const float *lati
             {
                 if (forecastData["air_temperature"].is<float>())
                 {
-                    weatherData->hourlyTemps[i] = forecastData["air_temperature"].as<float>();
+                    weather.hourlyTemps[i] = forecastData["air_temperature"].as<float>();
                 }
                 if (forecastData["precipitation_amount_min"].is<float>())
                 {
-                    weatherData->hourlyPrecipMin[i] = forecastData["precipitation_amount_min"].as<float>();
+                    weather.hourlyPrecipMin[i] = forecastData["precipitation_amount_min"].as<float>();
                 }
                 if (forecastData["precipitation_amount_max"].is<float>())
                 {
-                    weatherData->hourlyPrecip[i] = forecastData["precipitation_amount_max"].as<float>();
+                    weather.hourlyPrecip[i] = forecastData["precipitation_amount_max"].as<float>();
                 }
             }
 
             // SMHI times are UTC ("2025-01-01T13:00:00Z"); store them as local "HH:MM"
             const char *timeStr = timeSeries[forecastIndex + i]["time"] | "";
-            weatherData->hourlyTimes[i] = utcTimestampToLocalHHMM(timeStr);
+            weather.hourlyTimes[i] = utcTimestampToLocalHHMM(timeStr);
         }
 
         // Initialize daily forecast aggregates
         for (int d = 0; d < FORECAST_DAYS; d++)
         {
-            weatherData->dailyMinTemp[d] = 999.0f;
-            weatherData->dailyMaxTemp[d] = -999.0f;
-            weatherData->dailyPrecipMin[d] = 0.0f;
-            weatherData->dailyPrecip[d] = 0.0f;
-            weatherData->dailyWeatherCodes[d] = 0;
-            weatherData->dailyNames[d] = "";
-            weatherData->dailyHasData[d] = false;
+            weather.dailyMinTemp[d] = 999.0f;
+            weather.dailyMaxTemp[d] = -999.0f;
+            weather.dailyPrecipMin[d] = 0.0f;
+            weather.dailyPrecip[d] = 0.0f;
+            weather.dailyWeatherCodes[d] = 0;
+            weather.dailyNames[d] = "";
+            weather.dailyHasData[d] = false;
         }
 
         int bestSymbolHourDiff[FORECAST_DAYS];
@@ -332,19 +330,19 @@ void WeatherClient::fetchWeatherData(WeatherData *weatherData, const float *lati
                     if (entryData["air_temperature"].is<float>())
                     {
                         float t = entryData["air_temperature"].as<float>();
-                        if (t < weatherData->dailyMinTemp[d]) weatherData->dailyMinTemp[d] = t;
-                        if (t > weatherData->dailyMaxTemp[d]) weatherData->dailyMaxTemp[d] = t;
+                        if (t < weather.dailyMinTemp[d]) weather.dailyMinTemp[d] = t;
+                        if (t > weather.dailyMaxTemp[d]) weather.dailyMaxTemp[d] = t;
                     }
                     // Summing the hourly min and max gives a range for the day, matching
                     // the min - max label in the hourly graph. A sum of maximums alone
                     // overstates the expected total.
                     if (entryData["precipitation_amount_min"].is<float>())
                     {
-                        weatherData->dailyPrecipMin[d] += entryData["precipitation_amount_min"].as<float>();
+                        weather.dailyPrecipMin[d] += entryData["precipitation_amount_min"].as<float>();
                     }
                     if (entryData["precipitation_amount_max"].is<float>())
                     {
-                        weatherData->dailyPrecip[d] += entryData["precipitation_amount_max"].as<float>();
+                        weather.dailyPrecip[d] += entryData["precipitation_amount_max"].as<float>();
                     }
                     if (entryData["symbol_code"].is<int>())
                     {
@@ -353,14 +351,14 @@ void WeatherClient::fetchWeatherData(WeatherData *weatherData, const float *lati
                         if (hourDiff < bestSymbolHourDiff[d])
                         {
                             bestSymbolHourDiff[d] = hourDiff;
-                            weatherData->dailyWeatherCodes[d] = sym;
+                            weather.dailyWeatherCodes[d] = sym;
                         }
                     }
                 }
             }
         }
 
-        static const char *swedishDays[7] = {
+        static const char *const swedishDays[7] = {
             "S\xf6n", // Söndag (0)
             "M\xe5n", // Måndag (1)
             "Tis",    // Tisdag (2)
@@ -375,20 +373,21 @@ void WeatherClient::fetchWeatherData(WeatherData *weatherData, const float *lati
             // refToday is zero-initialized (Sunday) if no time was available at all;
             // those days then have no data and only show a dash.
             int targetWday = (refToday.tm_wday + (d + 1)) % 7;
-            weatherData->dailyNames[d] = swedishDays[targetWday];
+            weather.dailyNames[d] = swedishDays[targetWday];
             // A day only counts as forecast if it got at least one temperature value
-            weatherData->dailyHasData[d] = weatherData->dailyMinTemp[d] != 999.0f;
+            weather.dailyHasData[d] = weather.dailyMinTemp[d] != 999.0f;
             Serial.printf("Day %d (%s): HasData=%d, Min=%.1f, Max=%.1f, Precip=%.1f-%.1f, Symbol=%d\n",
-                          d + 1, weatherData->dailyNames[d].c_str(), weatherData->dailyHasData[d],
-                          weatherData->dailyMinTemp[d], weatherData->dailyMaxTemp[d],
-                          weatherData->dailyPrecipMin[d], weatherData->dailyPrecip[d],
-                          weatherData->dailyWeatherCodes[d]);
+                          d + 1, weather.dailyNames[d].c_str(), weather.dailyHasData[d],
+                          weather.dailyMinTemp[d], weather.dailyMaxTemp[d],
+                          weather.dailyPrecipMin[d], weather.dailyPrecip[d],
+                          weather.dailyWeatherCodes[d]);
         }
-    }
-    else
-    {
-        Serial.printf("HTTP Error: %d\n", httpCode);
+
+        http.end();
+        return true;
     }
 
+    Serial.printf("HTTP Error: %d\n", httpCode);
     http.end();
+    return false;
 }

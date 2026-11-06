@@ -24,14 +24,16 @@
 Inkplate display(DISPLAY_MODE); // 1-bit or 3-bit (grayscale) mode, see MONOCHROME in config.h
 
 #include "Utils/FontCollection.h"
-#include "Utils/DisplayManager.h"
+#include "Utils/DrawUtils.h"
 
-#include "Clock/TimeUtils.h"
+#include "Clock/ClockDisplay.h"
+#include "Weather/WeatherClient.h"
 #include "Weather/WeatherDisplay.h"
+#include "PublicTransport/DeparturesClient.h"
 #include "PublicTransport/DeparturesDisplay.h"
 
 #if defined(ARDUINO_INKPLATE10) || defined(ARDUINO_INKPLATE10V2)
-const char *networkName = "Inkplate10 Home Dashboard";
+static constexpr const char *networkName = "Inkplate10 Home Dashboard";
 
 #include "Fonts/AcariSans12.h"
 #include "Fonts/AcariSans16.h"
@@ -45,7 +47,7 @@ static const FontCollection fonts = {
     AcariSans_Medium12pt8b};
 
 #elif defined(ARDUINO_INKPLATE5) || defined(ARDUINO_INKPLATE5V2)
-const char *networkName = "Inkplate5 Home Dashboard";
+static constexpr const char *networkName = "Inkplate5 Home Dashboard";
 
 #include "Fonts/AcariSansbd12.h"
 #include "Fonts/AcariSans20.h"
@@ -63,20 +65,25 @@ static const FontCollection fonts = {
 #endif
 
 // Trafiklab transport modes
-const char *trainTransportType = "TRAIN";
-const char *busTransportType = "BUS";
+static constexpr const char *trainTransportType = "TRAIN";
+static constexpr const char *busTransportType = "BUS";
 
 // Layout constants
-const int leftXpos = 35;   // Left column start position
-const int rightXpos = 430; // right column start position
+static constexpr int leftXpos = 35;   // Left column start position
+static constexpr int rightXpos = 430; // right column start position
 
-const int rowHeight = 50;
+static constexpr int rowHeight = 50;
 
-const int busLineWidth = 80;
-const int trainLineWidth = 60;
+static constexpr int busLineWidth = 80;
+static constexpr int trainLineWidth = 60;
 
-int framesDrawn = 0;
-bool weatherFetchMissed = false;
+static int framesDrawn = 0;
+static bool weatherFetchMissed = false;
+static WeatherData weatherData; // Last fetched forecast, kept on screen between fetches
+static DepartureList departures; // Reused for each stop, too large for the loop task's stack
+
+static void fetchAndDrawDepartures(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime);
+static void drawStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos);
 
 void setup()
 {
@@ -87,7 +94,7 @@ void setup()
                             //(NOTE! This does not clean image on screen, it only clears it in the frame buffer inside
                             // ESP32).
 
-    printStartupMessage(display, fonts, 100, 200);
+    drawStartupMessage(display, fonts, 100, 200);
 
     display.display(); // Clear everything that has previously been on a screen
 
@@ -174,21 +181,25 @@ void loop()
     }
 
     display.clearDisplay(); // Clear the frame buffer in ESP32 memory
-    printLocalTime(display, fonts, leftXpos, 100);
+    drawClock(display, fonts, leftXpos, 100);
 
     // Fetch weather every FULL_REFRESH_EVERY_N_UPDATES updates, and as soon as Wi-Fi
     // is back if a scheduled fetch was skipped while offline.
-    bool fetchWeather = framesDrawn == 0 || weatherFetchMissed;
-    weatherFetchMissed = fetchWeather && !online;
-    drawWeather(display, fonts, leftXpos, 180, rowHeight, online && fetchWeather);
+    bool weatherDue = framesDrawn == 0 || weatherFetchMissed;
+    weatherFetchMissed = weatherDue && !online;
+    if (online && weatherDue)
+    {
+        fetchWeather(weatherData, WEATHER_LATITUDE, WEATHER_LONGITUDE);
+    }
+    drawWeather(display, fonts, weatherData, leftXpos, 180, rowHeight);
 
     if (online)
     {
         Serial.println("Bus information from API...");
-        drawDeparturesWithRetry(BUS_SITE_ID, busTransportType, BUS_TITLE, 65, busLineWidth, true);
+        fetchAndDrawDepartures(BUS_SITE_ID, busTransportType, BUS_TITLE, 65, busLineWidth, true);
 
         Serial.println("Train information from API...");
-        drawDeparturesWithRetry(TRAIN_SITE_ID, trainTransportType, TRAIN_TITLE, 385, trainLineWidth, false);
+        fetchAndDrawDepartures(TRAIN_SITE_ID, trainTransportType, TRAIN_TITLE, 385, trainLineWidth, false);
     }
     else
     {
@@ -221,9 +232,9 @@ void loop()
     esp_task_wdt_reset();
 }
 
-// Draws one departures section, trying once more after a short pause if the API
-// call fails (the error message from a failed attempt is drawn over on success).
-void drawDeparturesWithRetry(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime)
+// Fetches and draws one departures section, trying once more after a short pause
+// if the API call fails.
+static void fetchAndDrawDepartures(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime)
 {
     for (int attempt = 0; attempt < 2; attempt++)
     {
@@ -232,12 +243,13 @@ void drawDeparturesWithRetry(const char *siteId, const char *transportType, cons
             delay(1000);
             esp_task_wdt_reset();
         }
-        if (drawDepartures(display, fonts, siteId, transportType, title, rightXpos, ypos, lineBadgeWidth, useInformalTime, rowHeight))
-            return;
+        if (fetchDepartures(departures, siteId, transportType))
+            break;
     }
+    drawDepartures(display, fonts, departures, title, rightXpos, ypos, lineBadgeWidth, useInformalTime, rowHeight);
 }
 
-void printStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
+static void drawStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
 {
     display.setTextColor(_BLACK, _WHITE);
 
