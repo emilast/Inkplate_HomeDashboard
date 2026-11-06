@@ -3,11 +3,11 @@
 #include "../Utils/utils.h"
 #include <HTTPClient.h>
 
-const char *apiUrl = "https://transport.integration.sl.se/v1/sites/";
+static const char *const apiUrl = "https://transport.integration.sl.se/v1/sites/";
 
-const int rightMargin = 25; // right margin on screen
+static const int rightMargin = 25; // right margin on screen
 
-void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, JsonDocument &doc, const char *transportType, String title, int xpos, int startYpos, int lineBadgeWidth, bool useInformalTime, int rowHeight)
+static void parseAndDisplayDepartures(Inkplate &display, const FontCollection &fonts, JsonDocument &doc, const char *transportType, String title, int xpos, int startYpos, int lineBadgeWidth, bool useInformalTime, int rowHeight)
 {
     int maxHeight = 320;
     int ypos = startYpos;

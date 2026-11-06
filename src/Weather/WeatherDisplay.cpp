@@ -14,10 +14,10 @@
 #include "icons/icon_s_thermometer.h"
 
 // Weather
-WeatherClient weatherClient;
-WeatherData weatherData;
+static WeatherClient weatherClient;
+static WeatherData weatherData;
 
-const uint8_t *getWeatherIcon(int code)
+static const uint8_t *getWeatherIcon(int code)
 {
     switch (code)
     {
@@ -61,7 +61,7 @@ const uint8_t *getWeatherIcon(int code)
     }
 }
 
-int getTemperatureGraphY(float temperature, float paddedTempMin, float paddedTempMax, int chartBottom, int graphHeight, int marginY)
+static int getTemperatureGraphY(float temperature, float paddedTempMin, float paddedTempMax, int chartBottom, int graphHeight, int marginY)
 {
     float tempRange = paddedTempMax - paddedTempMin;
     if (tempRange == 0)
@@ -70,7 +70,7 @@ int getTemperatureGraphY(float temperature, float paddedTempMin, float paddedTem
 }
 
 // Draw dithered gray bar
-void drawBarGray(Adafruit_GFX &display, int x, int chartBottom, int barHeight, int xStep)
+static void drawBarGray(Adafruit_GFX &display, int x, int chartBottom, int barHeight, int xStep)
 {
 #if MONOCHROME
     // In monochrome mode, draw dithered pattern for gray
@@ -91,8 +91,10 @@ void drawBarGray(Adafruit_GFX &display, int x, int chartBottom, int barHeight, i
 #endif
 }
 
+static void drawDailyForecast(Inkplate &display, const FontCollection &fonts, WeatherData *weatherData, int xpos, int ypos, int widgetWidth);
+
 // --- Draw Temperature & Precipitation Graph ---
-void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, WeatherData *weatherData, float currentTemp, int xpos, int ypos, int graphWidth, int graphHeight)
+static void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, WeatherData *weatherData, float currentTemp, int xpos, int ypos, int graphWidth, int graphHeight)
 {
     // Layout values for graph placement
     int graphX = xpos;
@@ -351,7 +353,7 @@ void drawWeather(Inkplate &display, const FontCollection &fonts, int xpos, int y
     }
 }
 
-void drawDailyForecast(Inkplate &display, const FontCollection &fonts, WeatherData *weatherData, int xpos, int ypos, int widgetWidth)
+static void drawDailyForecast(Inkplate &display, const FontCollection &fonts, WeatherData *weatherData, int xpos, int ypos, int widgetWidth)
 {
     if (!weatherData) return;
     if (weatherData->dailyNames[0].length() == 0) return;

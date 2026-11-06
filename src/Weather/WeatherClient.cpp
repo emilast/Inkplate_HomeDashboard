@@ -108,12 +108,12 @@ String WeatherClient::getWeatherDescription(int code)
     }
 }
 
-float windChill(float tempC, float windSpeedKph)
+static float windChill(float tempC, float windSpeedKph)
 {
     return 13.12 + 0.6215 * tempC - 11.37 * pow(windSpeedKph, 0.16) + 0.3965 * tempC * pow(windSpeedKph, 0.16);
 }
 
-float heatIndex(float tempC, float humidity)
+static float heatIndex(float tempC, float humidity)
 {
     float T = tempC;
     float R = humidity;
@@ -129,7 +129,7 @@ float heatIndex(float tempC, float humidity)
            -0.000003582 * pow(T, 2) * pow(R, 2);
 }
 
-float feelsLikeC(float tempC, float humidity, float windSpeedMps)
+static float feelsLikeC(float tempC, float humidity, float windSpeedMps)
 {
     float windKph = windSpeedMps * 3.6;
 

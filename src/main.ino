@@ -31,7 +31,7 @@ Inkplate display(DISPLAY_MODE); // 1-bit or 3-bit (grayscale) mode, see MONOCHRO
 #include "PublicTransport/DeparturesDisplay.h"
 
 #if defined(ARDUINO_INKPLATE10) || defined(ARDUINO_INKPLATE10V2)
-const char *networkName = "Inkplate10 Home Dashboard";
+static const char *const networkName = "Inkplate10 Home Dashboard";
 
 #include "Fonts/AcariSans12.h"
 #include "Fonts/AcariSans16.h"
@@ -45,7 +45,7 @@ static const FontCollection fonts = {
     AcariSans_Medium12pt8b};
 
 #elif defined(ARDUINO_INKPLATE5) || defined(ARDUINO_INKPLATE5V2)
-const char *networkName = "Inkplate5 Home Dashboard";
+static const char *const networkName = "Inkplate5 Home Dashboard";
 
 #include "Fonts/AcariSansbd12.h"
 #include "Fonts/AcariSans20.h"
@@ -63,20 +63,23 @@ static const FontCollection fonts = {
 #endif
 
 // Trafiklab transport modes
-const char *trainTransportType = "TRAIN";
-const char *busTransportType = "BUS";
+static const char *const trainTransportType = "TRAIN";
+static const char *const busTransportType = "BUS";
 
 // Layout constants
-const int leftXpos = 35;   // Left column start position
-const int rightXpos = 430; // right column start position
+static const int leftXpos = 35;   // Left column start position
+static const int rightXpos = 430; // right column start position
 
-const int rowHeight = 50;
+static const int rowHeight = 50;
 
-const int busLineWidth = 80;
-const int trainLineWidth = 60;
+static const int busLineWidth = 80;
+static const int trainLineWidth = 60;
 
-int framesDrawn = 0;
-bool weatherFetchMissed = false;
+static int framesDrawn = 0;
+static bool weatherFetchMissed = false;
+
+static void drawDeparturesWithRetry(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime);
+static void printStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos);
 
 void setup()
 {
@@ -223,7 +226,7 @@ void loop()
 
 // Draws one departures section, trying once more after a short pause if the API
 // call fails (the error message from a failed attempt is drawn over on success).
-void drawDeparturesWithRetry(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime)
+static void drawDeparturesWithRetry(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime)
 {
     for (int attempt = 0; attempt < 2; attempt++)
     {
@@ -237,7 +240,7 @@ void drawDeparturesWithRetry(const char *siteId, const char *transportType, cons
     }
 }
 
-void printStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
+static void printStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
 {
     display.setTextColor(_BLACK, _WHITE);
 
