@@ -27,6 +27,7 @@ Inkplate display(DISPLAY_MODE); // 1-bit or 3-bit (grayscale) mode, see MONOCHRO
 #include "Utils/DisplayManager.h"
 
 #include "Clock/TimeUtils.h"
+#include "Weather/WeatherClient.h"
 #include "Weather/WeatherDisplay.h"
 #include "PublicTransport/DeparturesDisplay.h"
 
@@ -77,6 +78,7 @@ static const int trainLineWidth = 60;
 
 static int framesDrawn = 0;
 static bool weatherFetchMissed = false;
+static WeatherData weatherData; // Last fetched forecast, kept on screen between fetches
 
 static void drawDeparturesWithRetry(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime);
 static void printStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos);
@@ -181,9 +183,13 @@ void loop()
 
     // Fetch weather every FULL_REFRESH_EVERY_N_UPDATES updates, and as soon as Wi-Fi
     // is back if a scheduled fetch was skipped while offline.
-    bool fetchWeather = framesDrawn == 0 || weatherFetchMissed;
-    weatherFetchMissed = fetchWeather && !online;
-    drawWeather(display, fonts, leftXpos, 180, rowHeight, online && fetchWeather);
+    bool weatherDue = framesDrawn == 0 || weatherFetchMissed;
+    weatherFetchMissed = weatherDue && !online;
+    if (online && weatherDue)
+    {
+        fetchWeather(weatherData, WEATHER_LATITUDE, WEATHER_LONGITUDE);
+    }
+    drawWeather(display, fonts, weatherData, leftXpos, 180, rowHeight);
 
     if (online)
     {

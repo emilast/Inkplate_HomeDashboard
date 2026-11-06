@@ -1,18 +1,7 @@
 #pragma once
 
-#include <WiFi.h>
-#include <HTTPClient.h>
 #include "WeatherData.h"
-#include <Inkplate.h>
-#include <Arduino.h>
 
-class WeatherClient
-{
-  public:
-    // --- Public methods ---
-    void fetchWeatherData(WeatherData *weatherData, const float *latitude, const float *longitude);
-
-  private:
-    // --- Private helper methods ---
-    String getWeatherDescription(int code);
-};
+// Fetches the SMHI forecast for the given position into weather. Returns false,
+// leaving weather unchanged, if the request or the parsing fails.
+bool fetchWeather(WeatherData &weather, float latitude, float longitude);
