@@ -359,23 +359,10 @@ void drawDailyForecast(Inkplate &display, const FontCollection &fonts, WeatherDa
     int numDays = FORECAST_DAYS;
     int colWidth = widgetWidth / numDays;
 
-    // Top divider line below 24-hour diagram
-    display.drawLine(xpos + 5, ypos - 10, xpos + widgetWidth - 5, ypos - 10, _BLACK);
-
     for (int d = 0; d < numDays; d++)
     {
         int colLeft = xpos + d * colWidth;
         int colCenterX = colLeft + colWidth / 2;
-
-        // Subtle vertical separator between columns
-        if (d > 0)
-        {
-#if MONOCHROME
-            display.drawLine(colLeft, ypos - 4, colLeft, ypos + 115, _BLACK);
-#else
-            display.drawLine(colLeft, ypos - 4, colLeft, ypos + 115, _GRAY4);
-#endif
-        }
 
         // 1. Day Name Header
         display.setFont(&fonts.smallTextFont);
