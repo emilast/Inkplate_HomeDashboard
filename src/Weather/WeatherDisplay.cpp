@@ -89,7 +89,7 @@ static void drawBarGray(Adafruit_GFX &display, int x, int chartBottom, int barHe
 static void drawDailyForecast(Inkplate &display, const FontCollection &fonts, const WeatherData &weather, int xpos, int ypos, int widgetWidth);
 
 // --- Draw Temperature & Precipitation Graph ---
-static void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, const WeatherData &weather, float currentTemp, int xpos, int ypos, int graphWidth, int graphHeight)
+static void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &fonts, const WeatherData &weather, int xpos, int ypos, int graphWidth, int graphHeight)
 {
     // Layout values for graph placement
     int graphX = xpos;
@@ -149,7 +149,7 @@ static void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &
     display.drawLine(chartLeft, yMaxActual, chartLeft + graphWidth - 2 * marginX, yMaxActual, _BLACK);
 
     // Current temperature line
-    int yCurrent = getTemperatureGraphY(currentTemp, paddedTempMin, paddedTempMax, chartBottom, graphHeight, marginY);
+    int yCurrent = getTemperatureGraphY(weather.currentTemp, paddedTempMin, paddedTempMax, chartBottom, graphHeight, marginY);
 
 #if MONOCHROME
     display.drawThickLine(chartLeft, yCurrent, chartLeft + graphWidth - 2 * marginX, yCurrent, _BLACK, 3);
@@ -160,7 +160,7 @@ static void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &
     // Log min, max and current y coordinates for debugging
     Serial.printf("Min Y: %d, Max Y: %d, Current Y: %d\n", yMinActual, yMaxActual, yCurrent);
     // Log the actual min and max temperatures
-    Serial.printf("Actual Min Temp: %.1f, Actual Max Temp: %.1f, Current Temp: %.1f\n", actualTempMin, actualTempMax, currentTemp);
+    Serial.printf("Actual Min Temp: %.1f, Actual Max Temp: %.1f, Current Temp: %.1f\n", actualTempMin, actualTempMax, weather.currentTemp);
 
     // Draw Min temperature label
     display.setCursor(chartLeft - 70, yMinActual + 7);
@@ -189,7 +189,7 @@ static void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &
     }
 
     display.setCursor(chartLeft - 70, yCurrentLabel);
-    display.print(currentTemp, 1); // Show temperature with 1 decimal place
+    display.print(weather.currentTemp, 1); // Show temperature with 1 decimal place
     display.print("\xb0");
 
     // Draw precipitation bars
@@ -335,7 +335,7 @@ void drawWeather(Inkplate &display, const FontCollection &fonts, const WeatherDa
     if (graphHeight > maxGraphHeight)
         graphHeight = maxGraphHeight;
 
-    drawTemperaturePrecipGraph(display, fonts, weather, weather.currentTemp, xpos + 20, ypos, 350, graphHeight);
+    drawTemperaturePrecipGraph(display, fonts, weather, xpos + 20, ypos, 350, graphHeight);
 
     if (showForecast)
     {

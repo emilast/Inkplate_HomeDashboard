@@ -358,7 +358,7 @@ bool fetchWeather(WeatherData &weather, float latitude, float longitude)
             }
         }
 
-        static const char *swedishDays[7] = {
+        static const char *const swedishDays[7] = {
             "S\xf6n", // Söndag (0)
             "M\xe5n", // Måndag (1)
             "Tis",    // Tisdag (2)

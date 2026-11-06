@@ -2,7 +2,7 @@
 #include "../Utils/DisplayManager.h"
 #include "../Utils/utils.h"
 
-static const int rightMargin = 25; // right margin on screen
+static constexpr int rightMargin = 25; // right margin on screen
 
 // Draws one departure row and its deviation messages, returns the new ypos
 static int drawDeparture(Inkplate &display, const FontCollection &fonts, const Departure &departure, int xpos, int ypos, int lineBadgeWidth, bool useInformalTime, int rowHeight)

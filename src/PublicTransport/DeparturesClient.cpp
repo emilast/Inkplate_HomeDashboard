@@ -2,7 +2,7 @@
 #include "DeparturesParser.h"
 #include <HTTPClient.h>
 
-static const char *const apiUrl = "https://transport.integration.sl.se/v1/sites/";
+static constexpr const char *apiUrl = "https://transport.integration.sl.se/v1/sites/";
 
 bool fetchDepartures(DepartureList &departures, const char *siteId, const char *transportType)
 {

@@ -33,7 +33,7 @@ Inkplate display(DISPLAY_MODE); // 1-bit or 3-bit (grayscale) mode, see MONOCHRO
 #include "PublicTransport/DeparturesDisplay.h"
 
 #if defined(ARDUINO_INKPLATE10) || defined(ARDUINO_INKPLATE10V2)
-static const char *const networkName = "Inkplate10 Home Dashboard";
+static constexpr const char *networkName = "Inkplate10 Home Dashboard";
 
 #include "Fonts/AcariSans12.h"
 #include "Fonts/AcariSans16.h"
@@ -47,7 +47,7 @@ static const FontCollection fonts = {
     AcariSans_Medium12pt8b};
 
 #elif defined(ARDUINO_INKPLATE5) || defined(ARDUINO_INKPLATE5V2)
-static const char *const networkName = "Inkplate5 Home Dashboard";
+static constexpr const char *networkName = "Inkplate5 Home Dashboard";
 
 #include "Fonts/AcariSansbd12.h"
 #include "Fonts/AcariSans20.h"
@@ -65,17 +65,17 @@ static const FontCollection fonts = {
 #endif
 
 // Trafiklab transport modes
-static const char *const trainTransportType = "TRAIN";
-static const char *const busTransportType = "BUS";
+static constexpr const char *trainTransportType = "TRAIN";
+static constexpr const char *busTransportType = "BUS";
 
 // Layout constants
-static const int leftXpos = 35;   // Left column start position
-static const int rightXpos = 430; // right column start position
+static constexpr int leftXpos = 35;   // Left column start position
+static constexpr int rightXpos = 430; // right column start position
 
-static const int rowHeight = 50;
+static constexpr int rowHeight = 50;
 
-static const int busLineWidth = 80;
-static const int trainLineWidth = 60;
+static constexpr int busLineWidth = 80;
+static constexpr int trainLineWidth = 60;
 
 static int framesDrawn = 0;
 static bool weatherFetchMissed = false;
