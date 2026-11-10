@@ -81,6 +81,12 @@ void drawDepartures(Inkplate &display, const FontCollection &fonts, const Depart
 {
     const int maxHeight = 320;
 
+    // Clear the area so a section drawn below covers rows that overflow from the one above.
+    // The header is printed with startYpos as baseline, so it extends above it.
+    const int headerHeight = fonts.boldTextFont.yAdvance;
+    // +3 to adjust for rounding errors when drawing fonts
+    display.fillRect(xpos, startYpos - headerHeight, E_INK_WIDTH - rightMargin - xpos + 3, maxHeight + headerHeight, _WHITE);
+
     display.setTextColor(_BLACK, _WHITE);
     drawHeader(display, fonts.boldTextFont, title, xpos, startYpos);
 
