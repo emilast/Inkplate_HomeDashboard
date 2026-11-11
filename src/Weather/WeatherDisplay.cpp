@@ -398,8 +398,9 @@ static void drawDailyForecast(Inkplate &display, const FontCollection &fonts, co
             snprintf(precipBuf, sizeof(precipBuf), "%.0f-%.0f mm", pMin, pMax);
         else
             snprintf(precipBuf, sizeof(precipBuf), "%.1f-%.1f mm", pMin, pMax);
+        display.setFont(&fonts.tinyTextFont);
         display.getTextBounds(precipBuf, 0, 0, &x1, &y1, &w, &h);
-        display.setCursor(colCenterX - (w / 2), iconY + 48 + 44);
+        display.setCursor(colCenterX - (w / 2), iconY + 48 + 42);
         display.print(precipBuf);
     }
 }

@@ -35,6 +35,7 @@ Inkplate display(DISPLAY_MODE); // 1-bit or 3-bit (grayscale) mode, see MONOCHRO
 #if defined(ARDUINO_INKPLATE10) || defined(ARDUINO_INKPLATE10V2)
 static constexpr const char *networkName = "Inkplate10 Home Dashboard";
 
+#include "Fonts/AcariSansbd9.h"
 #include "Fonts/AcariSans12.h"
 #include "Fonts/AcariSans16.h"
 #include "Fonts/AcariSansbd16.h"
@@ -44,7 +45,8 @@ static const FontCollection fonts = {
     AcariSans_Regular16pt8b,
     AcariSans_Bold16pt8b,
     AcariSans_Bold50pt7b,
-    AcariSans_Medium12pt8b};
+    AcariSans_Medium12pt8b,
+    AcariSans_Bold9pt8b};
 
 #elif defined(ARDUINO_INKPLATE5) || defined(ARDUINO_INKPLATE5V2)
 static constexpr const char *networkName = "Inkplate5 Home Dashboard";
@@ -58,7 +60,8 @@ static const FontCollection fonts = {
     AcariSans_Regular20pt8b,
     AcariSans_Bold20pt8b,
     AcariSans_Bold50pt7b,
-    AcariSans_Bold12pt8b};
+    AcariSans_Bold12pt8b,
+    AcariSans_Bold12pt8b}; // The denser panel makes 12pt small enough, so no extra font is needed
 
 #else
 #error "Wrong board selection!"
