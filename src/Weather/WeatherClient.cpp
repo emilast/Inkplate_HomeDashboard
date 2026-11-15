@@ -306,7 +306,7 @@ bool fetchWeather(WeatherData &weather, float latitude, float longitude)
         // Determine reference "today" date in local time. Falls back to the date of the
         // first forecast entry if the clock isn't set yet.
         struct tm refToday = {};
-        bool hasRefToday = getLocalTime(&refToday);
+        bool hasRefToday = getLocalTime(&refToday, 0);
         time_t refNoonSec = hasRefToday ? localNoon(refToday) : 0;
 
         for (int i = 0; i < dataCount; i++)

@@ -5,7 +5,7 @@
 void drawClock(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
 {
     struct tm timeinfo;
-    if (!getLocalTime(&timeinfo))
+    if (!getLocalTime(&timeinfo, 0))
     {
         Serial.println("Failed to obtain time");
         return;

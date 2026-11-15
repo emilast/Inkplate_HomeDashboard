@@ -81,11 +81,13 @@ static constexpr int busLineWidth = 80;
 static constexpr int trainLineWidth = 60;
 
 static int framesDrawn = 0;
+static unsigned long lastOnlineMs = 0; // millis() of the last loop with Wi-Fi
 static bool weatherFetchMissed = false;
 static WeatherData weatherData; // Last fetched forecast, kept on screen between fetches
 static DepartureList departures; // Reused for each stop, too large for the loop task's stack
 
 static void fetchAndDrawDepartures(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime);
+static void restartIfDue();
 static void drawStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos);
 
 void setup()
@@ -169,19 +171,9 @@ void loop()
         }
     }
 
-    // Scheduled daily restart (04:00 by default) to eliminate long-term heap fragmentation.
-    // The uptime check keeps the board from restarting again when it comes back up
-    // while the clock still shows the restart time.
-    struct tm timeinfo;
-    if (millis() > MIN_UPTIME_BEFORE_RESTART_MS && getLocalTime(&timeinfo))
-    {
-        if (timeinfo.tm_hour == DAILY_RESTART_HOUR && timeinfo.tm_min == 0)
-        {
-            Serial.println("Performing scheduled daily maintenance restart...");
-            delay(1000);
-            ESP.restart();
-        }
-    }
+    if (online)
+        lastOnlineMs = millis();
+    restartIfDue();
 
     display.clearDisplay(); // Clear the frame buffer in ESP32 memory
     drawClock(display, fonts, leftXpos, 100);
@@ -252,6 +244,35 @@ static void fetchAndDrawDepartures(const char *siteId, const char *transportType
             break;
     }
     drawDepartures(display, fonts, departures, title, rightXpos, ypos, lineBadgeWidth, useInformalTime, rowHeight);
+}
+
+static void restart(const char *reason)
+{
+    Serial.println(reason);
+    delay(1000);
+    ESP.restart();
+}
+
+// Restarts the board once a day to clear long-term heap fragmentation, and as a
+// fallback when that can't work or the board can't get back online by itself.
+static void restartIfDue()
+{
+    unsigned long uptime = millis();
+
+    // The uptime check keeps the board from restarting again when it comes back
+    // up while the clock still shows the restart time.
+    struct tm timeinfo;
+    if (uptime > MIN_UPTIME_BEFORE_RESTART_MS && getLocalTime(&timeinfo, 0) &&
+        timeinfo.tm_hour == DAILY_RESTART_HOUR && timeinfo.tm_min == 0)
+        restart("Performing scheduled daily maintenance restart...");
+
+    // Without a clock (NTP never synced) the daily restart never happens
+    if (uptime > MAX_UPTIME_MS)
+        restart("Uptime limit reached, restarting...");
+
+    // A restart runs WiFiManager again, which also reopens the setup portal
+    if (uptime - lastOnlineMs > MAX_OFFLINE_MS)
+        restart("Offline for too long, restarting...");
 }
 
 static void drawStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)

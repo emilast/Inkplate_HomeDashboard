@@ -45,5 +45,10 @@ static constexpr int DAILY_RESTART_HOUR = 4;
 // Minimum uptime before the daily restart, so the board doesn't restart twice
 static constexpr unsigned long MIN_UPTIME_BEFORE_RESTART_MS = 10UL * 60UL * 1000UL;
 
+// Fallback restarts: after this much uptime, for when the clock is unknown and the
+// daily restart can't happen, and after this long without Wi-Fi
+static constexpr unsigned long MAX_UPTIME_MS = 26UL * 60UL * 60UL * 1000UL;
+static constexpr unsigned long MAX_OFFLINE_MS = 30UL * 60UL * 1000UL;
+
 // The task watchdog reboots the board if loop() hangs for longer than this
 static constexpr int WDT_TIMEOUT_SECONDS = 60;
