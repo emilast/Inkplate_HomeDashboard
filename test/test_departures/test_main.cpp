@@ -120,6 +120,43 @@ void test_missing_departures_array()
     TEST_ASSERT_EQUAL_INT(0, departures.count);
 }
 
+void test_filter_keeps_used_fields_and_drops_the_rest()
+{
+    const char *json = R"({"departures":[{
+        "destination":"Stuvsta","display":"3 min","direction_code":1,
+        "scheduled":"2026-11-06T17:04:00","expected":"2026-11-06T17:06:00",
+        "line":{"id":744,"designation":"744","transport_mode":"BUS","group_of_lines":"x"},
+        "journey":{"id":1,"state":"CANCELLED","prediction_state":"NORMAL"},
+        "stop_area":{"id":1,"name":"Snättringe"},
+        "deviations":[{"importance_level":5,"message":"Försenad"}]}],
+        "stop_deviations":[{"message":"Hiss ur funktion"}]})";
+
+    JsonDocument filter;
+    buildDeparturesFilter(filter);
+    JsonDocument doc;
+    TEST_ASSERT_FALSE(deserializeJson(doc, json, DeserializationOption::Filter(filter)));
+
+    JsonObject d = doc["departures"][0];
+    TEST_ASSERT_FALSE(d["direction_code"].is<int>());
+    TEST_ASSERT_TRUE(d["stop_area"].isNull());
+    TEST_ASSERT_TRUE(d["line"]["id"].isNull());
+    TEST_ASSERT_TRUE(d["journey"]["prediction_state"].isNull());
+    TEST_ASSERT_TRUE(d["deviations"][0]["importance_level"].isNull());
+    TEST_ASSERT_TRUE(doc["stop_deviations"].isNull());
+
+    parseDepartures(doc, "BUS", departures);
+    TEST_ASSERT_EQUAL_INT(1, departures.count);
+    const Departure &dep = departures.departures[0];
+    TEST_ASSERT_EQUAL_STRING("744", dep.line);
+    TEST_ASSERT_EQUAL_STRING("Stuvsta", dep.destination);
+    TEST_ASSERT_EQUAL_STRING("3 min", dep.displayTime);
+    TEST_ASSERT_EQUAL_INT(4, dep.scheduledMinute);
+    TEST_ASSERT_EQUAL_INT(6, dep.expectedMinute);
+    TEST_ASSERT_TRUE(dep.cancelled);
+    TEST_ASSERT_EQUAL_INT(1, dep.deviationCount);
+    TEST_ASSERT_EQUAL_STRING("F\xf6rsenad", dep.deviations[0]);
+}
+
 // ---- parseErrorMessage ----
 
 static void assertErrorMessage(const char *body, const char *expected)
@@ -171,6 +208,7 @@ int main()
     RUN_TEST(test_deviations_skip_empty_messages_and_are_capped);
     RUN_TEST(test_departure_count_is_capped);
     RUN_TEST(test_missing_departures_array);
+    RUN_TEST(test_filter_keeps_used_fields_and_drops_the_rest);
     RUN_TEST(test_error_message_from_json_fields);
     RUN_TEST(test_error_message_falls_back_to_body);
     RUN_TEST(test_error_message_for_empty_body);

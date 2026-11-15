@@ -31,6 +31,19 @@ static void parseDeparture(JsonObject departure, Departure &out)
     }
 }
 
+void buildDeparturesFilter(JsonDocument &filter)
+{
+    JsonObject departure = filter["departures"][0].to<JsonObject>();
+    departure["line"]["designation"] = true;
+    departure["line"]["transport_mode"] = true;
+    departure["display"] = true;
+    departure["destination"] = true;
+    departure["scheduled"] = true;
+    departure["expected"] = true;
+    departure["journey"]["state"] = true;
+    departure["deviations"][0]["message"] = true;
+}
+
 void parseDepartures(JsonDocument &doc, const char *transportType, DepartureList &departures)
 {
     departures.status = DepartureStatus::Ok;

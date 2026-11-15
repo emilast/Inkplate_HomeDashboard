@@ -27,8 +27,10 @@ bool fetchDepartures(DepartureList &departures, const char *siteId, const char *
         return false;
     }
 
+    JsonDocument filter;
+    buildDeparturesFilter(filter);
     JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, http.getStream());
+    DeserializationError error = deserializeJson(doc, http.getStream(), DeserializationOption::Filter(filter));
     http.end();
     if (error)
     {
@@ -41,7 +43,6 @@ bool fetchDepartures(DepartureList &departures, const char *siteId, const char *
     for (int i = 0; i < departures.count; i++)
     {
         const Departure &d = departures.departures[i];
-        Serial.printf("Departure for %s: Line %s, %s\n", d.destination, d.line, d.displayTime);
     }
     return true;
 }
