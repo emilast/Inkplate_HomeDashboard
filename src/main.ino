@@ -259,11 +259,12 @@ static void restartIfDue()
 {
     unsigned long uptime = millis();
 
-    // The uptime check keeps the board from restarting again when it comes back
-    // up while the clock still shows the restart time.
+    // Any time within the restart hour counts, so a slow loop can't step over it.
+    // The uptime check keeps the board from restarting again in the same hour
+    // once it is back up.
     struct tm timeinfo;
     if (uptime > MIN_UPTIME_BEFORE_RESTART_MS && getLocalTime(&timeinfo, 0) &&
-        timeinfo.tm_hour == DAILY_RESTART_HOUR && timeinfo.tm_min == 0)
+        timeinfo.tm_hour == DAILY_RESTART_HOUR)
         restart("Performing scheduled daily maintenance restart...");
 
     // Without a clock (NTP never synced) the daily restart never happens
