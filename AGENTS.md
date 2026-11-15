@@ -67,6 +67,21 @@ void drawWeather(Inkplate &display, const FontCollection &fonts, const WeatherDa
   `esp_task_wdt_reset()`.
 - **Comments:** explain why, not what. Keep them short.
 
+## Workflow
+
+- **Branches:** `feature/<slug>` for every change, branched from the latest
+  `main`, one topic per branch. A branch name given by the tool or session you
+  run in takes precedence.
+- **Commits:** one logical change per commit. Imperative subject line under about
+  70 characters, and a body that explains why.
+- **Before pushing:** `pio test -e native` and
+  `pio run -e release_inkplate10v2 -e release_inkplate5v2` must pass.
+- **Pull requests:** a *Summary* section (what and why, per commit if there are
+  several) and a *Testing* section (what was run, and what still needs checking
+  on a device). Say plainly what wasn't tested on hardware.
+- **User settings:** a new or changed setting in `config.h` also goes in the
+  README.
+
 ## When to reconsider
 
 If modules start holding real state, or widgets need to be composed differently
