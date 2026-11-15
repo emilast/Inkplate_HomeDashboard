@@ -59,7 +59,9 @@ void drawWeather(Inkplate &display, const FontCollection &fonts, const WeatherDa
   to the display are named `draw*`.
 - **Declarations:** declare functions before use, also in `main.ino`, instead of
   relying on Arduino's generated prototypes.
-- **On-screen text** is Swedish and ISO-8859-1 encoded: write å, ä, ö as `\xe5`,
+- **Language:** text shown on the display is Swedish. Everything else is
+  English: identifiers, comments, serial log messages, commit messages and docs.
+- **On-screen text** is ISO-8859-1 encoded: write å, ä, ö as `\xe5`,
   `\xe4`, `\xf6`. Convert UTF-8 API text with `utf8ToIso88591()`.
 - **Memory:** avoid heap churn on the ESP32. Parse HTTP responses from the stream
   with an ArduinoJson filter, use fixed-size buffers and `snprintf`, no VLAs.
