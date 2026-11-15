@@ -193,6 +193,7 @@ void loop()
     if (online && weatherDue)
     {
         fetchWeather(weatherData, WEATHER_LATITUDE, WEATHER_LONGITUDE);
+        esp_task_wdt_reset();
     }
     drawWeather(display, fonts, weatherData, leftXpos, 180, rowHeight);
 
@@ -236,17 +237,18 @@ void loop()
 }
 
 // Fetches and draws one departures section, trying once more after a short pause
-// if the API call fails.
+// if the API call fails. The watchdog is fed around every request: each one can
+// take up to the HTTP timeouts in HttpUtils.cpp, all of them together could not.
 static void fetchAndDrawDepartures(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime)
 {
     for (int attempt = 0; attempt < 2; attempt++)
     {
         if (attempt > 0)
-        {
             delay(1000);
-            esp_task_wdt_reset();
-        }
-        if (fetchDepartures(departures, siteId, transportType))
+        esp_task_wdt_reset();
+        bool ok = fetchDepartures(departures, siteId, transportType);
+        esp_task_wdt_reset();
+        if (ok)
             break;
     }
     drawDepartures(display, fonts, departures, title, rightXpos, ypos, lineBadgeWidth, useInformalTime, rowHeight);
