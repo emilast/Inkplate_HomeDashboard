@@ -104,6 +104,7 @@ static DepartureList departures; // Reused for each stop, too large for the loop
 static void fetchAndDrawDepartures(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime, SourceStatus &source);
 static void restartIfDue();
 static void drawStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos);
+static void drawStatusPageAddress(Inkplate &display, const FontCollection &fonts, const char *ip);
 
 void setup()
 {
@@ -257,6 +258,8 @@ void loop()
 
     // Last, because the departures sections clear an area that reaches up to it
     drawResetNotice(display, fonts, bootInfo, E_INK_WIDTH - 25, 28);
+    if (STATUS_PAGE_ENABLED && online)
+        drawStatusPageAddress(display, fonts, WiFi.localIP().toString().c_str());
 
     esp_task_wdt_reset();
 
@@ -343,6 +346,14 @@ static void restartIfDue()
     // A restart runs WiFiManager again, which also reopens the setup portal
     if (uptime - lastOnlineMs > MAX_OFFLINE_MS)
         restart("Offline for too long, restarting...");
+}
+
+// The board's IP address in the bottom right corner, so the status page is easy
+// to find when inkplate.local doesn't resolve
+static void drawStatusPageAddress(Inkplate &display, const FontCollection &fonts, const char *ip)
+{
+    display.setTextColor(_BLACK, _WHITE);
+    drawRightString(display, fonts.smallTextFont, ip, E_INK_WIDTH - 25, E_INK_HEIGHT - 8, false);
 }
 
 static void drawStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
