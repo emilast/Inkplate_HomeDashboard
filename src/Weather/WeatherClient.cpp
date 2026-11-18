@@ -392,7 +392,11 @@ bool fetchWeather(WeatherData &weather, float latitude, float longitude)
         return true;
     }
 
-    Serial.printf("HTTP Error: %d\n", httpCode);
+    // Negative codes are connection errors; the TLS error says why it failed
+    char tlsError[100] = "";
+    if (httpCode < 0)
+        client.lastError(tlsError, sizeof(tlsError));
+    Serial.printf("Weather request failed: %d %s %s\n", httpCode, http.errorToString(httpCode).c_str(), tlsError);
     http.end();
     return false;
 }

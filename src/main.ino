@@ -82,7 +82,9 @@ static constexpr int trainLineWidth = 60;
 
 static int framesDrawn = 0;
 static unsigned long lastOnlineMs = 0; // millis() of the last loop with Wi-Fi
-static bool weatherFetchMissed = false;
+static bool weatherFetchMissed = false; // a due weather fetch was skipped or failed
+
+static constexpr uint32_t ntpWaitMs = 10000; // how long setup() waits for the clock
 static WeatherData weatherData; // Last fetched forecast, kept on screen between fetches
 static DepartureList departures; // Reused for each stop, too large for the loop task's stack
 
@@ -112,7 +114,7 @@ void setup()
 
     wm.setCleanConnect(true);
     wm.setConnectTimeout(30);       // seconds to try reconnecting
-    wm.setConnectRetries(5);        // retries before giving up
+    wm.setConnectRetries(10);        // retries before giving up
     wm.setConfigPortalTimeout(300); // give up on the setup portal after 5 minutes and retry from loop()
 
     bool res = wm.autoConnect(networkName);
@@ -138,6 +140,13 @@ void setup()
     // Set the local time zone (see TIME_ZONE in config.h)
     setenv("TZ", TIME_ZONE, 1);
     tzset();
+
+    // loop() doesn't wait for the clock, so give NTP a moment here. The first
+    // update then shows the time and doesn't start its requests the instant
+    // Wi-Fi comes up.
+    struct tm timeinfo;
+    if (WiFi.status() == WL_CONNECTED && !getLocalTime(&timeinfo, ntpWaitMs))
+        Serial.println("Time not set yet, continuing without it.");
 }
 
 void loop()
@@ -178,14 +187,14 @@ void loop()
     display.clearDisplay(); // Clear the frame buffer in ESP32 memory
     drawClock(display, fonts, leftXpos, 100);
 
-    // Fetch weather every FULL_REFRESH_EVERY_N_UPDATES updates, and as soon as Wi-Fi
-    // is back if a scheduled fetch was skipped while offline.
+    // Fetch weather every FULL_REFRESH_EVERY_N_UPDATES updates. A fetch that was
+    // skipped while offline, or that failed, is tried again on the next update.
     bool weatherDue = framesDrawn == 0 || weatherFetchMissed;
-    weatherFetchMissed = weatherDue && !online;
-    if (online && weatherDue)
+    if (weatherDue)
     {
-        fetchWeather(weatherData, WEATHER_LATITUDE, WEATHER_LONGITUDE);
+        bool fetched = online && fetchWeather(weatherData, WEATHER_LATITUDE, WEATHER_LONGITUDE);
         esp_task_wdt_reset();
+        weatherFetchMissed = !fetched;
     }
     drawWeather(display, fonts, weatherData, leftXpos, 180, rowHeight);
 
