@@ -39,6 +39,10 @@ BootInfo readBootInfo();
 // Records the current step. Cheap enough to call before every operation.
 void setStep(Step step);
 
+// The current step and the millis() at which it started, for the status page
+Step currentStep();
+unsigned long currentStepStartedMs();
+
 // True for resets that point to a problem: watchdog, panic, brownout, or a
 // software restart the dashboard didn't plan.
 bool isUnexpectedReset(const BootInfo &info);

@@ -51,5 +51,12 @@ static constexpr unsigned long MIN_UPTIME_BEFORE_RESTART_MS = 61UL * 60UL * 1000
 static constexpr unsigned long MAX_UPTIME_MS = 26UL * 60UL * 60UL * 1000UL;
 static constexpr unsigned long MAX_OFFLINE_MS = 30UL * 60UL * 1000UL;
 
+// ---- Status page ----
+
+// A read-only page with uptime, errors, memory and the last reset, on the home
+// network at http://<STATUS_PAGE_HOSTNAME>.local/ (or the board's IP address)
+static constexpr bool STATUS_PAGE_ENABLED = true;
+static constexpr const char *STATUS_PAGE_HOSTNAME = "inkplate";
+
 // The task watchdog reboots the board if loop() hangs for longer than this
 static constexpr int WDT_TIMEOUT_SECONDS = 60;

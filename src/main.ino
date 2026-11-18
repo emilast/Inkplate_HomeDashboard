@@ -33,6 +33,7 @@ Inkplate display(DISPLAY_MODE); // 1-bit or 3-bit (grayscale) mode, see MONOCHRO
 #include "PublicTransport/DeparturesDisplay.h"
 #include "Diagnostics/Diagnostics.h"
 #include "Diagnostics/DiagnosticsDisplay.h"
+#include "StatusPage/StatusPage.h"
 
 #if defined(ARDUINO_INKPLATE10) || defined(ARDUINO_INKPLATE10V2)
 static constexpr const char *networkName = "Inkplate10 Home Dashboard";
@@ -97,9 +98,10 @@ static constexpr int setupWdtTimeoutSeconds =
     wifiConnectTimeoutSeconds * wifiConnectRetries + wifiPortalTimeoutSeconds + 300;
 static WeatherData weatherData; // Last fetched forecast, kept on screen between fetches
 static BootInfo bootInfo;      // why the board last reset, shown after an unexpected reset
+static DashboardStatus status; // what the status page shows
 static DepartureList departures; // Reused for each stop, too large for the loop task's stack
 
-static void fetchAndDrawDepartures(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime);
+static void fetchAndDrawDepartures(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime, SourceStatus &source);
 static void restartIfDue();
 static void drawStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos);
 
@@ -153,6 +155,13 @@ void setup()
         Serial.println("Connected to WiFi.");
         WiFi.setAutoReconnect(true);
         WiFi.persistent(true);
+    }
+
+    status.boot = bootInfo;
+    if (STATUS_PAGE_ENABLED)
+    {
+        startStatusPage(STATUS_PAGE_HOSTNAME);
+        publishStatus(status);
     }
 
     // WiFiManager is done: from here on nothing should block for long, so switch to
@@ -222,6 +231,7 @@ void loop()
         setStep(Step::FetchWeather);
         bool fetched = online && fetchWeather(weatherData, WEATHER_LATITUDE, WEATHER_LONGITUDE);
         esp_task_wdt_reset();
+        recordFetch(status.weather, fetched, online ? "request or parsing failed, see the serial log" : "offline");
         weatherFetchMissed = !fetched;
     }
     setStep(Step::Draw);
@@ -231,14 +241,16 @@ void loop()
     {
         Serial.println("Bus information from API...");
         setStep(Step::FetchBus);
-        fetchAndDrawDepartures(BUS_SITE_ID, busTransportType, BUS_TITLE, 65, busLineWidth, true);
+        fetchAndDrawDepartures(BUS_SITE_ID, busTransportType, BUS_TITLE, 65, busLineWidth, true, status.bus);
 
         Serial.println("Train information from API...");
         setStep(Step::FetchTrain);
-        fetchAndDrawDepartures(TRAIN_SITE_ID, trainTransportType, TRAIN_TITLE, 385, trainLineWidth, false);
+        fetchAndDrawDepartures(TRAIN_SITE_ID, trainTransportType, TRAIN_TITLE, 385, trainLineWidth, false, status.train);
     }
     else
     {
+        recordFetch(status.bus, false, "offline");
+        recordFetch(status.train, false, "offline");
         drawOfflineMessage(display, fonts, BUS_TITLE, rightXpos, 65, rowHeight);
         drawOfflineMessage(display, fonts, TRAIN_TITLE, rightXpos, 385, rowHeight);
     }
@@ -267,6 +279,7 @@ void loop()
     framesDrawn = (framesDrawn + 1) % FULL_REFRESH_EVERY_N_UPDATES;
 
     logMemory();
+    publishStatus(status);
     setStep(Step::Waiting);
     Serial.printf("Waiting for next update in %d seconds...\n", REFRESH_INTERVAL_MS / 1000);
     esp_task_wdt_reset();
@@ -277,18 +290,27 @@ void loop()
 // Fetches and draws one departures section, trying once more after a short pause
 // if the API call fails. The watchdog is fed around every request: each one can
 // take up to the HTTP timeouts in HttpUtils.cpp, all of them together could not.
-static void fetchAndDrawDepartures(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime)
+static void fetchAndDrawDepartures(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime, SourceStatus &source)
 {
+    bool ok = false;
     for (int attempt = 0; attempt < 2; attempt++)
     {
         if (attempt > 0)
             delay(1000);
         esp_task_wdt_reset();
-        bool ok = fetchDepartures(departures, siteId, transportType);
+        ok = fetchDepartures(departures, siteId, transportType);
         esp_task_wdt_reset();
         if (ok)
             break;
     }
+
+    char error[128] = "";
+    if (departures.status == DepartureStatus::HttpError)
+        snprintf(error, sizeof(error), "HTTP %d: %s", departures.httpCode, departures.errorMessage);
+    else if (departures.status == DepartureStatus::ParseError)
+        snprintf(error, sizeof(error), "could not parse the response");
+    recordFetch(source, ok, error);
+
     drawDepartures(display, fonts, departures, title, rightXpos, ypos, lineBadgeWidth, useInformalTime, rowHeight);
 }
 
