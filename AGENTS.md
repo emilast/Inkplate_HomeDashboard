@@ -76,6 +76,10 @@ void drawWeather(Inkplate &display, const FontCollection &fonts, const WeatherDa
   run in takes precedence.
 - **Commits:** one logical change per commit. Imperative subject line under about
   70 characters, and a body that explains why.
+- **Commit messages** are brief: say what was done and why, without going into
+  detail. Don't hard-wrap the body; write each paragraph on a single line, since
+  inserted line breaks break the formatting.
+- **Pushing:** never run `git push` without the user's explicit confirmation.
 - **Before pushing:** `pio test -e native` and
   `pio run -e release_inkplate10v2 -e release_inkplate5v2` must pass.
 - **Pull requests:** a *Summary* section (what and why, per commit if there are

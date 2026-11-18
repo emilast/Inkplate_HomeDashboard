@@ -1,6 +1,6 @@
 #include "WeatherClient.h"
 #include <WiFi.h>
-#include <HTTPClient.h>
+#include "../Utils/HttpUtils.h"
 #include "WeatherData.h"
 #include "../Utils/utils.h"
 
@@ -180,9 +180,14 @@ bool fetchWeather(WeatherData &weather, float latitude, float longitude)
 
     Serial.printf("Fetching weather data from: %s\n", url);
 
+    WiFiClientSecure client;
     HTTPClient http;
     http.useHTTP10(true); // Disable chunked transfer encoding for compatibility with stream parsing
-    http.begin(url);
+    if (!beginHttps(http, client, url))
+    {
+        Serial.println("Invalid weather URL");
+        return false;
+    }
     int httpCode = http.GET();
 
     if (httpCode == HTTP_CODE_OK)
@@ -301,7 +306,7 @@ bool fetchWeather(WeatherData &weather, float latitude, float longitude)
         // Determine reference "today" date in local time. Falls back to the date of the
         // first forecast entry if the clock isn't set yet.
         struct tm refToday = {};
-        bool hasRefToday = getLocalTime(&refToday);
+        bool hasRefToday = getLocalTime(&refToday, 0);
         time_t refNoonSec = hasRefToday ? localNoon(refToday) : 0;
 
         for (int i = 0; i < dataCount; i++)
@@ -387,7 +392,11 @@ bool fetchWeather(WeatherData &weather, float latitude, float longitude)
         return true;
     }
 
-    Serial.printf("HTTP Error: %d\n", httpCode);
+    // Negative codes are connection errors; the TLS error says why it failed
+    char tlsError[100] = "";
+    if (httpCode < 0)
+        client.lastError(tlsError, sizeof(tlsError));
+    Serial.printf("Weather request failed: %d %s %s\n", httpCode, http.errorToString(httpCode).c_str(), tlsError);
     http.end();
     return false;
 }

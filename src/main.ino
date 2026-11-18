@@ -81,11 +81,15 @@ static constexpr int busLineWidth = 80;
 static constexpr int trainLineWidth = 60;
 
 static int framesDrawn = 0;
-static bool weatherFetchMissed = false;
+static unsigned long lastOnlineMs = 0; // millis() of the last loop with Wi-Fi
+static bool weatherFetchMissed = false; // a due weather fetch was skipped or failed
+
+static constexpr uint32_t ntpWaitMs = 10000; // how long setup() waits for the clock
 static WeatherData weatherData; // Last fetched forecast, kept on screen between fetches
 static DepartureList departures; // Reused for each stop, too large for the loop task's stack
 
 static void fetchAndDrawDepartures(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime);
+static void restartIfDue();
 static void drawStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos);
 
 void setup()
@@ -110,7 +114,7 @@ void setup()
 
     wm.setCleanConnect(true);
     wm.setConnectTimeout(30);       // seconds to try reconnecting
-    wm.setConnectRetries(5);        // retries before giving up
+    wm.setConnectRetries(10);        // retries before giving up
     wm.setConfigPortalTimeout(300); // give up on the setup portal after 5 minutes and retry from loop()
 
     bool res = wm.autoConnect(networkName);
@@ -136,6 +140,13 @@ void setup()
     // Set the local time zone (see TIME_ZONE in config.h)
     setenv("TZ", TIME_ZONE, 1);
     tzset();
+
+    // loop() doesn't wait for the clock, so give NTP a moment here. The first
+    // update then shows the time and doesn't start its requests the instant
+    // Wi-Fi comes up.
+    struct tm timeinfo;
+    if (WiFi.status() == WL_CONNECTED && !getLocalTime(&timeinfo, ntpWaitMs))
+        Serial.println("Time not set yet, continuing without it.");
 }
 
 void loop()
@@ -169,30 +180,21 @@ void loop()
         }
     }
 
-    // Scheduled daily restart (04:00 by default) to eliminate long-term heap fragmentation.
-    // The uptime check keeps the board from restarting again when it comes back up
-    // while the clock still shows the restart time.
-    struct tm timeinfo;
-    if (millis() > MIN_UPTIME_BEFORE_RESTART_MS && getLocalTime(&timeinfo))
-    {
-        if (timeinfo.tm_hour == DAILY_RESTART_HOUR && timeinfo.tm_min == 0)
-        {
-            Serial.println("Performing scheduled daily maintenance restart...");
-            delay(1000);
-            ESP.restart();
-        }
-    }
+    if (online)
+        lastOnlineMs = millis();
+    restartIfDue();
 
     display.clearDisplay(); // Clear the frame buffer in ESP32 memory
     drawClock(display, fonts, leftXpos, 100);
 
-    // Fetch weather every FULL_REFRESH_EVERY_N_UPDATES updates, and as soon as Wi-Fi
-    // is back if a scheduled fetch was skipped while offline.
+    // Fetch weather every FULL_REFRESH_EVERY_N_UPDATES updates. A fetch that was
+    // skipped while offline, or that failed, is tried again on the next update.
     bool weatherDue = framesDrawn == 0 || weatherFetchMissed;
-    weatherFetchMissed = weatherDue && !online;
-    if (online && weatherDue)
+    if (weatherDue)
     {
-        fetchWeather(weatherData, WEATHER_LATITUDE, WEATHER_LONGITUDE);
+        bool fetched = online && fetchWeather(weatherData, WEATHER_LATITUDE, WEATHER_LONGITUDE);
+        esp_task_wdt_reset();
+        weatherFetchMissed = !fetched;
     }
     drawWeather(display, fonts, weatherData, leftXpos, 180, rowHeight);
 
@@ -236,20 +238,51 @@ void loop()
 }
 
 // Fetches and draws one departures section, trying once more after a short pause
-// if the API call fails.
+// if the API call fails. The watchdog is fed around every request: each one can
+// take up to the HTTP timeouts in HttpUtils.cpp, all of them together could not.
 static void fetchAndDrawDepartures(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime)
 {
     for (int attempt = 0; attempt < 2; attempt++)
     {
         if (attempt > 0)
-        {
             delay(1000);
-            esp_task_wdt_reset();
-        }
-        if (fetchDepartures(departures, siteId, transportType))
+        esp_task_wdt_reset();
+        bool ok = fetchDepartures(departures, siteId, transportType);
+        esp_task_wdt_reset();
+        if (ok)
             break;
     }
     drawDepartures(display, fonts, departures, title, rightXpos, ypos, lineBadgeWidth, useInformalTime, rowHeight);
+}
+
+static void restart(const char *reason)
+{
+    Serial.println(reason);
+    delay(1000);
+    ESP.restart();
+}
+
+// Restarts the board once a day to clear long-term heap fragmentation, and as a
+// fallback when that can't work or the board can't get back online by itself.
+static void restartIfDue()
+{
+    unsigned long uptime = millis();
+
+    // Any time within the restart hour counts, so a slow loop can't step over it.
+    // The uptime check keeps the board from restarting again in the same hour
+    // once it is back up.
+    struct tm timeinfo;
+    if (uptime > MIN_UPTIME_BEFORE_RESTART_MS && getLocalTime(&timeinfo, 0) &&
+        timeinfo.tm_hour == DAILY_RESTART_HOUR)
+        restart("Performing scheduled daily maintenance restart...");
+
+    // Without a clock (NTP never synced) the daily restart never happens
+    if (uptime > MAX_UPTIME_MS)
+        restart("Uptime limit reached, restarting...");
+
+    // A restart runs WiFiManager again, which also reopens the setup portal
+    if (uptime - lastOnlineMs > MAX_OFFLINE_MS)
+        restart("Offline for too long, restarting...");
 }
 
 static void drawStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)

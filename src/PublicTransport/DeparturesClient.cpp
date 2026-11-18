@@ -1,6 +1,6 @@
 #include "DeparturesClient.h"
 #include "DeparturesParser.h"
-#include <HTTPClient.h>
+#include "../Utils/HttpUtils.h"
 
 static constexpr const char *apiUrl = "https://transport.integration.sl.se/v1/sites/";
 
@@ -8,12 +8,19 @@ bool fetchDepartures(DepartureList &departures, const char *siteId, const char *
 {
     departures.count = 0;
 
+    WiFiClientSecure client;
     HTTPClient http;
     http.useHTTP10(true); // Disable chunked transfer encoding, required when parsing from getStream()
     char requestUrl[256];
     snprintf(requestUrl, sizeof(requestUrl), "%s%s/departures?transport=%s&nocache=%u",
              apiUrl, siteId, transportType, (unsigned int)random(1000, 9999));
-    http.begin(requestUrl);
+    if (!beginHttps(http, client, requestUrl))
+    {
+        departures.status = DepartureStatus::HttpError;
+        departures.httpCode = HTTPC_ERROR_CONNECTION_REFUSED;
+        snprintf(departures.errorMessage, sizeof(departures.errorMessage), "Ogiltig URL");
+        return false;
+    }
     int httpCode = http.GET();
 
     if (httpCode != HTTP_CODE_OK)

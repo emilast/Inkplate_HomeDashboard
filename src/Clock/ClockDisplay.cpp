@@ -5,14 +5,14 @@
 void drawClock(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
 {
     struct tm timeinfo;
-    if (!getLocalTime(&timeinfo))
+    if (!getLocalTime(&timeinfo, 0))
     {
         Serial.println("Failed to obtain time");
         return;
     }
     char timeBuffer[20];
     strftime(timeBuffer, sizeof(timeBuffer), "%H:%M", &timeinfo);
-    Serial.println(timeBuffer);
+    Serial.printf("Time: %s\n", timeBuffer);
     display.setCursor(xpos, ypos);
     display.setFont(&fonts.largeTextFont);
     display.println(timeBuffer);
