@@ -85,6 +85,14 @@ static unsigned long lastOnlineMs = 0; // millis() of the last loop with Wi-Fi
 static bool weatherFetchMissed = false; // a due weather fetch was skipped or failed
 
 static constexpr uint32_t ntpWaitMs = 10000; // how long setup() waits for the clock
+
+// WiFiManager settings. autoConnect() can block for all retries plus the setup
+// portal, so the watchdog timeout during setup() is derived from them.
+static constexpr int wifiConnectTimeoutSeconds = 30;
+static constexpr int wifiConnectRetries = 10;
+static constexpr int wifiPortalTimeoutSeconds = 300;
+static constexpr int setupWdtTimeoutSeconds =
+    wifiConnectTimeoutSeconds * wifiConnectRetries + wifiPortalTimeoutSeconds + 300;
 static WeatherData weatherData; // Last fetched forecast, kept on screen between fetches
 static DepartureList departures; // Reused for each stop, too large for the loop task's stack
 
@@ -95,6 +103,12 @@ static void drawStartupMessage(Inkplate &display, const FontCollection &fonts, i
 void setup()
 {
     Serial.begin(115200);
+
+    // Watch setup() too, with a timeout long enough for WiFiManager. Without it a
+    // hang in the display or Wi-Fi setup would last until someone power-cycles
+    // the board.
+    esp_task_wdt_init(setupWdtTimeoutSeconds, true);
+    esp_task_wdt_add(NULL);
 
     display.begin();        // Init library (you should call this function ONLY ONCE)
     display.clearDisplay(); // Clear any data that may have been in (software) frame buffer.
@@ -113,9 +127,9 @@ void setup()
     delay(1000);
 
     wm.setCleanConnect(true);
-    wm.setConnectTimeout(30);       // seconds to try reconnecting
-    wm.setConnectRetries(10);        // retries before giving up
-    wm.setConfigPortalTimeout(300); // give up on the setup portal after 5 minutes and retry from loop()
+    wm.setConnectTimeout(wifiConnectTimeoutSeconds);
+    wm.setConnectRetries(wifiConnectRetries);
+    wm.setConfigPortalTimeout(wifiPortalTimeoutSeconds); // then give up and retry from loop()
 
     bool res = wm.autoConnect(networkName);
     if (!res)
@@ -129,10 +143,10 @@ void setup()
         WiFi.persistent(true);
     }
 
-    // Start the Task Watchdog only after WiFiManager is done: autoConnect() and the
-    // configuration portal can block for minutes without feeding the watchdog.
+    // WiFiManager is done: from here on nothing should block for long, so switch to
+    // the normal timeout (calling init again only changes the timeout)
     esp_task_wdt_init(WDT_TIMEOUT_SECONDS, true);
-    esp_task_wdt_add(NULL);
+    esp_task_wdt_reset();
 
     // Get current time from time server
     configTime(0, 0, NTP_SERVER);
