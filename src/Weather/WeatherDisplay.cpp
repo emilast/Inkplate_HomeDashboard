@@ -202,9 +202,6 @@ static void drawTemperaturePrecipGraph(Inkplate &display, const FontCollection &
         int barHeightMin = (precipScale > 0) ? (weather.hourlyPrecipMin[i] / precipScale) * (marginY) : 0;
         int barHeight = (precipScale > 0) ? (weather.hourlyPrecip[i] / precipScale) * (marginY) : 0;
 
-        Serial.printf("Min precipitation for hour %d: %f, barHeight: %d\n", i, weather.hourlyPrecipMin[i], barHeightMin);
-        Serial.printf("Max precipitation for hour %d: %f, barHeight: %d\n", i, weather.hourlyPrecip[i], barHeight);
-
         // Draw the precipitation bar
         drawBarGray(display, x, chartBottom, barHeight, xStep);
         display.fillRect(x, chartBottom - barHeightMin, xStep + 1, barHeightMin, _BLACK);
