@@ -109,6 +109,42 @@ static void appendEscaped(int *len, const char *text)
     }
 }
 
+// Number of signal bars (0-4) for an RSSI, using the usual Wi-Fi thresholds
+static int signalBars(int rssi)
+{
+    if (rssi >= -55)
+        return 4;
+    if (rssi >= -67)
+        return 3;
+    if (rssi >= -75)
+        return 2;
+    if (rssi >= -85)
+        return 1;
+    return 0;
+}
+
+static const char *signalQuality(int bars)
+{
+    static const char *const names[] = {"very weak", "weak", "fair", "good", "excellent"};
+    return names[bars];
+}
+
+// A small four-bar gauge, sized to sit on a line of text
+static void appendSignalGauge(int *len, int rssi, bool connected)
+{
+    int bars = connected ? signalBars(rssi) : 0;
+    append(len, "<svg width=\"20\" height=\"14\" viewBox=\"0 0 20 14\" style=\"vertical-align:-2px;margin-right:6px\">"
+                "<title>%s</title>",
+           connected ? signalQuality(bars) : "not connected");
+    for (int i = 0; i < 4; i++)
+    {
+        int height = 5 + i * 3;
+        append(len, "<rect x=\"%d\" y=\"%d\" width=\"3.5\" height=\"%d\" rx=\"1\" fill=\"%s\"/>",
+               i * 5, 14 - height, height, i < bars ? "#333" : "#ccc");
+    }
+    append(len, "</svg>");
+}
+
 static void appendSource(int *len, const char *name, const SourceStatus &source)
 {
     char attempt[24], success[24];
@@ -298,8 +334,15 @@ static void handleRoot()
     append(&len, "<tr><th>Time</th><td>%s</td></tr>", now);
     append(&len, "<tr><th>Uptime</th><td>%s</td></tr>", uptime);
     append(&len, "<tr><th>Current step</th><td>%s, for %s</td></tr>", stepName(currentStep()), stepFor);
-    append(&len, "<tr><th>Wi-Fi</th><td>%s, %d dBm, %s</td></tr>",
-           WiFi.SSID().c_str(), WiFi.RSSI(), WiFi.localIP().toString().c_str());
+    bool connected = WiFi.status() == WL_CONNECTED;
+    int rssi = WiFi.RSSI();
+    append(&len, "<tr><th>Wi-Fi</th><td>");
+    appendSignalGauge(&len, rssi, connected);
+    if (connected)
+        append(&len, "%s, %d dBm (%s), %s</td></tr>",
+               WiFi.SSID().c_str(), rssi, signalQuality(signalBars(rssi)), WiFi.localIP().toString().c_str());
+    else
+        append(&len, "not connected</td></tr>");
     append(&len, "<tr><th>Memory</th><td>internal %u kB free (largest block %u kB, lowest %u kB), PSRAM %u kB free</td></tr>",
            (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024),
            (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL) / 1024),
