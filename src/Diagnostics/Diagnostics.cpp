@@ -1,6 +1,7 @@
 #include "Diagnostics.h"
 #include <Arduino.h>
 #include <esp_attr.h>
+#include <esp_heap_caps.h>
 
 static constexpr uint32_t recordMagic = 0x44494147; // "DIAG"
 
@@ -137,4 +138,15 @@ void logBootInfo(const BootInfo &info)
         strftime(when, sizeof(when), "%Y-%m-%d %H:%M:%S", &t);
     }
     Serial.printf("Last step before reset: %s (started %s)\n", stepName(info.previousStep), when);
+}
+
+void logMemory()
+{
+    // TLS needs internal RAM, so that is the number to watch for leaks
+    Serial.printf("Memory: internal free %u, largest block %u, lowest free %u; PSRAM free %u; uptime %lu s\n",
+                  (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+                  (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
+                  (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
+                  (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
+                  millis() / 1000);
 }

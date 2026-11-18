@@ -47,3 +47,7 @@ const char *stepName(Step step);                    // English, for logs
 const char *resetReasonName(esp_reset_reason_t r); // English, for logs
 
 void logBootInfo(const BootInfo &info);
+
+// Logs free internal RAM, its largest block and lowest point, and free PSRAM. A
+// steady drop over days points to a leak.
+void logMemory();

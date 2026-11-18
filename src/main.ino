@@ -266,6 +266,7 @@ void loop()
 
     framesDrawn = (framesDrawn + 1) % FULL_REFRESH_EVERY_N_UPDATES;
 
+    logMemory();
     setStep(Step::Waiting);
     Serial.printf("Waiting for next update in %d seconds...\n", REFRESH_INTERVAL_MS / 1000);
     esp_task_wdt_reset();
