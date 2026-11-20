@@ -15,6 +15,8 @@ It is based on the [Inkplate-Arduino-library](https://github.com/SolderedElectro
 - Grayscale (3-bit) mode by default, with a full refresh on every update. In monochrome mode (`MONOCHROME 1` in `src/config.h`) it uses partial updates to reduce flickering, with a full refresh every 10th update to remove ghosting.
 - Keeps running unattended: Wi-Fi is reconnected automatically (the clock and the last weather data stay on screen while offline), a task watchdog reboots the board if it hangs, and it restarts once a day at 04:00. It also restarts after 26 hours if the clock was never set, and after 30 minutes without Wi-Fi.
 
+After an unexpected restart (watchdog, crash or brownout) the top right corner shows the reason and what the board was doing, e.g. "Omstart 03:12: watchdog (SL tåg)", until the next restart. The serial log shows the same at boot, and a memory summary on every update.
+
 ## Configuration
 All user settings are in [`src/config.h`](src/config.h): the position for the weather forecast, the SL stops and their titles, the time zone, the display mode and the refresh timing.
 

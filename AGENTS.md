@@ -36,7 +36,7 @@ hold no state.
 | Fetch | free function returning `bool` | Performs HTTP and parsing, fills a data struct passed by reference. Never draws. |
 | Parse | free function, no Arduino dependencies where possible | Turns API payloads into data structs so it can be unit tested on the host. |
 | Draw | free function taking `const` data by reference | Never performs network calls. Same input gives the same output. |
-| State | owned by `main.ino` | Cached data (e.g. the last weather forecast) lives in `main.ino` and is passed to fetch and draw functions. No hidden module globals. |
+| State | owned by `main.ino` | Cached data (e.g. the last weather forecast) lives in `main.ino` and is passed to fetch and draw functions. No hidden module globals; the one exception is the step record in `Diagnostics/`, which has to survive a reset in RTC memory. |
 
 Draw functions take the display and fonts first, then the data, then the position:
 
