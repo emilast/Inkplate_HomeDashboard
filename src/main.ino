@@ -34,6 +34,7 @@ Inkplate display(DISPLAY_MODE); // 1-bit or 3-bit (grayscale) mode, see MONOCHRO
 #include "Diagnostics/Diagnostics.h"
 #include "Diagnostics/DiagnosticsDisplay.h"
 #include "StatusPage/StatusPage.h"
+#include "Display/DisplayPower.h"
 
 #if defined(ARDUINO_INKPLATE10) || defined(ARDUINO_INKPLATE10V2)
 static constexpr const char *networkName = "Inkplate10 Home Dashboard";
@@ -104,6 +105,7 @@ static DepartureList departures; // Reused for each stop, too large for the loop
 static void fetchAndDrawDepartures(const char *siteId, const char *transportType, const char *title, int ypos, int lineBadgeWidth, bool useInformalTime, SourceStatus &source, DataSource which);
 static void restartIfDue();
 static void drawStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos);
+static void updateDisplay(bool fullRefresh);
 static void drawStatusPageAddress(Inkplate &display, const FontCollection &fonts, const char *ip);
 
 void setup()
@@ -124,14 +126,15 @@ void setup()
     esp_task_wdt_init(setupWdtTimeoutSeconds, true);
     esp_task_wdt_add(NULL);
 
-    display.begin();        // Init library (you should call this function ONLY ONCE)
+    if (!display.begin()) // Init library (you should call this function ONLY ONCE)
+        Serial.println("display.begin() failed");
     display.clearDisplay(); // Clear any data that may have been in (software) frame buffer.
                             //(NOTE! This does not clean image on screen, it only clears it in the frame buffer inside
                             // ESP32).
 
     drawStartupMessage(display, fonts, 100, 200);
 
-    display.display(); // Clear everything that has previously been on a screen
+    updateDisplay(true); // Clear everything that has previously been on a screen
 
     // Connect to WiFi
     setStep(Step::WifiSetup);
@@ -267,20 +270,7 @@ void loop()
     esp_task_wdt_reset();
 
     setStep(Step::DisplayUpdate);
-#if MONOCHROME
-    // For monochrome mode, always use partial display update to reduce flickering
-    if (framesDrawn == 0)
-    {
-        display.display();
-    }
-    else
-    {
-        display.partialUpdate();
-    }
-#else
-    // For grayscale mode, use normal display update since partial mode is not yet supported in grayscale
-    display.display();
-#endif
+    updateDisplay(framesDrawn == 0);
 
     framesDrawn = (framesDrawn + 1) % FULL_REFRESH_EVERY_N_UPDATES;
 
@@ -362,6 +352,31 @@ static void drawStatusPageAddress(Inkplate &display, const FontCollection &fonts
 {
     display.setTextColor(_BLACK, _WHITE);
     drawRightString(display, fonts.smallTextFont, ip, E_INK_WIDTH - 25, E_INK_HEIGHT - 8, false);
+}
+
+// Sends the frame buffer to the panel. Checks first that the panel power comes
+// up, since display() silently does nothing when it doesn't.
+static void updateDisplay(bool fullRefresh)
+{
+    DisplayPowerCheck power = powerUpDisplay(display);
+    if (!power.ok)
+    {
+        Serial.println("Display power didn't come up, skipping this screen update");
+        return;
+    }
+
+#if MONOCHROME
+    // In monochrome mode, use partial updates to reduce flickering, with a full
+    // refresh every FULL_REFRESH_EVERY_N_UPDATES updates
+    if (fullRefresh)
+        display.display();
+    else
+        display.partialUpdate();
+#else
+    // Grayscale mode doesn't support partial updates
+    (void)fullRefresh;
+    display.display();
+#endif
 }
 
 static void drawStartupMessage(Inkplate &display, const FontCollection &fonts, int xpos, int ypos)
