@@ -336,12 +336,13 @@ static void restartIfDue()
     // The uptime check keeps the board from restarting again in the same hour
     // once it is back up.
     struct tm timeinfo;
-    if (uptime > MIN_UPTIME_BEFORE_RESTART_MS && getLocalTime(&timeinfo, 0) &&
+    if (DAILY_RESTART_HOUR >= 0 && uptime > MIN_UPTIME_BEFORE_RESTART_MS && getLocalTime(&timeinfo, 0) &&
         timeinfo.tm_hour == DAILY_RESTART_HOUR)
         restart("Performing scheduled daily maintenance restart...");
 
-    // Without a clock (NTP never synced) the daily restart never happens
-    if (uptime > MAX_UPTIME_MS)
+    // Without a clock (NTP never synced) the daily restart never happens, so this
+    // stands in for it. Off together with the daily restart.
+    if (DAILY_RESTART_HOUR >= 0 && uptime > MAX_UPTIME_MS)
         restart("Uptime limit reached, restarting...");
 
     // A restart runs WiFiManager again, which also reopens the setup portal

@@ -40,7 +40,8 @@ static constexpr int REFRESH_INTERVAL_MS = 20000;
 // Weather is fetched, and a full refresh is done in monochrome mode, every Nth update
 static constexpr int FULL_REFRESH_EVERY_N_UPDATES = 10;
 
-// Hour of the daily maintenance restart (local time)
+// Hour of the daily maintenance restart (local time), or -1 to turn it off (which
+// also turns off the MAX_UPTIME_MS fallback below)
 static constexpr int DAILY_RESTART_HOUR = 4;
 // Minimum uptime before the daily restart. Longer than an hour, so the board
 // doesn't restart again during the same restart hour.
