@@ -39,8 +39,8 @@ static unsigned long lastSampleMs = 0;
 // the history by the server task; guarded by statusLock.
 static uint8_t pendingFailures[DATA_SOURCE_COUNT] = {};
 
-static const char *const sourceNames[DATA_SOURCE_COUNT] = {"weather", "SL bus", "SL train"};
-static const char *const sourceColors[DATA_SOURCE_COUNT] = {"#17becf", "#9467bd", "#8c564b"};
+static const char *const sourceNames[DATA_SOURCE_COUNT] = {"weather", "SL bus", "SL train", "display"};
+static const char *const sourceColors[DATA_SOURCE_COUNT] = {"#17becf", "#9467bd", "#8c564b", "#222222"};
 
 static void formatTime(time_t t, char *buf, size_t size)
 {
@@ -178,6 +178,43 @@ static void appendSource(int *len, const char *name, const SourceStatus &source)
         append(len, "<b>error</b> %s: ", attempt);
         appendEscaped(len, source.lastError);
         append(len, "<br>last OK %s", success);
+    }
+    append(len, "</td></tr>");
+}
+
+static void appendRegister(int *len, int value)
+{
+    if (value < 0)
+        append(len, "no answer");
+    else
+        append(len, "0x%02X", value);
+}
+
+static void appendDisplay(int *len, const DisplayStatus &display)
+{
+    char lastUpdate[24], lastFailure[24];
+    formatTime(display.lastUpdate, lastUpdate, sizeof(lastUpdate));
+    formatTime(display.lastFailure, lastFailure, sizeof(lastFailure));
+
+    append(len, "<tr><th>Display</th><td>");
+    if (display.beginFailed)
+        append(len, "<b>display.begin() failed</b><br>");
+    if (display.updated)
+        append(len, "last screen update %s", lastUpdate);
+    else
+        append(len, "no screen update yet");
+
+    if (display.failedUpdates > 0)
+    {
+        append(len, "<br>%u failed power-ups", (unsigned)display.failedUpdates);
+        if (display.recoveredByRetry > 0)
+            append(len, " (%u OK on retry)", (unsigned)display.recoveredByRetry);
+        append(len, ", last %s: power good ", lastFailure);
+        appendRegister(len, display.powerGood);
+        append(len, ", faults ");
+        appendRegister(len, display.int1);
+        append(len, " ");
+        appendRegister(len, display.int2);
     }
     append(len, "</td></tr>");
 }
@@ -339,11 +376,11 @@ static void appendChart(int *len, const char *title, const ChartSeries *series, 
     if (lowestKb >= 0)
         append(len, "<span style=\"color:#d62728\">- -</span> %s (%d kB) &nbsp; ", lowestLabel, lowestKb);
     if (failureMarkers)
-        append(len, "<span style=\"color:#f4c2c2\">|</span> minutes with failed requests");
+        append(len, "<span style=\"color:#f4c2c2\">|</span> minutes with failures");
     append(len, "</div>");
 }
 
-// Failed requests per minute as stacked bars, on the same time axis as the memory
+// Failed requests and display power-ups per minute as stacked bars, on the same time axis as the memory
 // charts so the two can be compared
 static void appendFailureChart(int *len)
 {
@@ -351,7 +388,7 @@ static void appendFailureChart(int *len)
     for (int i = 0; i < historyCount; i++)
         maxCount = max(maxCount, sampleFailures(historySample(i)));
 
-    append(len, "<h2>Failed requests per minute</h2><svg viewBox=\"0 0 %d %d\" style=\"width:100%%;max-width:%dpx\" font-size=\"15\">",
+    append(len, "<h2>Failures per minute</h2><svg viewBox=\"0 0 %d %d\" style=\"width:100%%;max-width:%dpx\" font-size=\"15\">",
            chartWidth, failureChartHeight, chartWidth);
 
     int plotHeight = failurePlotBottom - plotTop;
@@ -445,25 +482,27 @@ static void handleRoot()
            (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL) / 1024),
            (unsigned)(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL) / 1024),
            (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024));
+    appendDisplay(&len, status.display);
     appendSource(&len, "Weather", status.weather);
     appendSource(&len, "SL bus", status.bus);
     appendSource(&len, "SL train", status.train);
 
-    const SourceStatus *sources[DATA_SOURCE_COUNT] = {&status.weather, &status.bus, &status.train};
+    const SourceStatus *sources[REQUEST_SOURCE_COUNT] = {&status.weather, &status.bus, &status.train};
     uint32_t totalFailed = 0;
     for (const SourceStatus *source : sources)
         totalFailed += source->failedRequests;
     int recentFailed = 0;
     for (int i = 0; i < historyCount; i++)
-        recentFailed += sampleFailures(historySample(i));
+        for (int s = 0; s < REQUEST_SOURCE_COUNT; s++)
+            recentFailed += historySample(i).failures[s];
     append(&len, "<tr><th>Failed requests</th><td>%u since boot, %d in the last %d min<br>",
            (unsigned)totalFailed, recentFailed, historyCount);
-    for (int s = 0; s < DATA_SOURCE_COUNT; s++)
+    for (int s = 0; s < REQUEST_SOURCE_COUNT; s++)
     {
         append(&len, "%s %u", sourceNames[s], (unsigned)sources[s]->failedRequests);
         if (sources[s]->recoveredByRetry > 0)
             append(&len, " (%u OK on retry)", (unsigned)sources[s]->recoveredByRetry);
-        append(&len, s < DATA_SOURCE_COUNT - 1 ? ", " : "</td></tr>");
+        append(&len, s < REQUEST_SOURCE_COUNT - 1 ? ", " : "</td></tr>");
     }
 
     append(&len, "<tr><th>Last reset</th><td>%s, boot %u since power-on",
@@ -523,12 +562,9 @@ static time_t currentTimeOrZero()
     return now > 1600000000 ? now : 0;
 }
 
-void recordFailedRequest(SourceStatus &source, DataSource which, const char *error)
+// Adds one failure to the current minute of the history
+static void addPendingFailure(DataSource which)
 {
-    source.failedRequests++;
-    source.lastFailure = currentTimeOrZero();
-    snprintf(source.lastFailureError, sizeof(source.lastFailureError), "%s", error ? error : "failed");
-
     if (statusLock == nullptr)
         return; // status page disabled: no history to add to
     xSemaphoreTake(statusLock, portMAX_DELAY);
@@ -536,6 +572,36 @@ void recordFailedRequest(SourceStatus &source, DataSource which, const char *err
     if (pending < 255)
         pending++;
     xSemaphoreGive(statusLock);
+}
+
+void recordFailedRequest(SourceStatus &source, DataSource which, const char *error)
+{
+    source.failedRequests++;
+    source.lastFailure = currentTimeOrZero();
+    snprintf(source.lastFailureError, sizeof(source.lastFailureError), "%s", error ? error : "failed");
+    addPendingFailure(which);
+}
+
+void recordDisplayUpdate(DisplayStatus &display, bool ok, int attempts, int powerGood, int int1, int int2)
+{
+    int failures = ok ? attempts - 1 : attempts;
+    for (int i = 0; i < failures; i++)
+        addPendingFailure(DataSource::Display);
+    display.failedUpdates += failures;
+    if (failures > 0)
+    {
+        display.lastFailure = currentTimeOrZero();
+        display.powerGood = powerGood;
+        display.int1 = int1;
+        display.int2 = int2;
+    }
+    if (ok)
+    {
+        display.updated = true;
+        display.lastUpdate = currentTimeOrZero();
+        if (attempts > 1)
+            display.recoveredByRetry++;
+    }
 }
 
 void recordFetch(SourceStatus &source, bool ok, const char *error)
