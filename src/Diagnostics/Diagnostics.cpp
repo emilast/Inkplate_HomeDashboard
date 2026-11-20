@@ -15,6 +15,7 @@ struct StepRecord
 
 // Not cleared on reset, so it still holds the last step after a watchdog reset
 RTC_NOINIT_ATTR static StepRecord record;
+static volatile unsigned long stepStartedMs = 0;
 
 static time_t currentTimeOrZero()
 {
@@ -50,6 +51,17 @@ void setStep(Step step)
 {
     record.step = (uint8_t)step;
     record.stepTime = currentTimeOrZero();
+    stepStartedMs = millis();
+}
+
+Step currentStep()
+{
+    return (Step)record.step;
+}
+
+unsigned long currentStepStartedMs()
+{
+    return stepStartedMs;
 }
 
 bool isUnexpectedReset(const BootInfo &info)
