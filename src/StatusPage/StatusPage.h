@@ -14,8 +14,10 @@ enum class DataSource : uint8_t
     Weather,
     Bus,
     Train,
+    Display, // not a request, but its failures share the per-minute history
 };
-static constexpr int DATA_SOURCE_COUNT = 3;
+static constexpr int REQUEST_SOURCE_COUNT = 3;
+static constexpr int DATA_SOURCE_COUNT = 4;
 
 struct SourceStatus
 {
@@ -32,9 +34,23 @@ struct SourceStatus
     char lastFailureError[128];
 };
 
+struct DisplayStatus
+{
+    bool beginFailed;
+    bool updated;          // at least one update reached the panel
+    time_t lastUpdate;     // last update that reached the panel
+    uint32_t failedUpdates; // power-up attempts that failed, including retried ones
+    uint32_t recoveredByRetry;
+    time_t lastFailure;
+    int powerGood; // power chip registers from the last failure, -1 if it didn't answer
+    int int1;
+    int int2;
+};
+
 struct DashboardStatus
 {
     BootInfo boot;
+    DisplayStatus display;
     SourceStatus weather;
     SourceStatus bus;
     SourceStatus train;
@@ -48,6 +64,10 @@ void publishStatus(const DashboardStatus &status);
 
 // Records the result of one fetch in source. error may be null when ok is true.
 void recordFetch(SourceStatus &source, bool ok, const char *error);
+
+// Records one screen update: whether the panel power came up, after how many
+// attempts, and the power chip registers read after a failure
+void recordDisplayUpdate(DisplayStatus &display, bool ok, int attempts, int powerGood, int int1, int int2);
 
 // Records one failed request, including attempts that are retried, in source and
 // in the status page's per-minute history

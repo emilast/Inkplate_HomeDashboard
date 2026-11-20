@@ -127,7 +127,10 @@ void setup()
     esp_task_wdt_add(NULL);
 
     if (!display.begin()) // Init library (you should call this function ONLY ONCE)
+    {
         Serial.println("display.begin() failed");
+        status.display.beginFailed = true;
+    }
     display.clearDisplay(); // Clear any data that may have been in (software) frame buffer.
                             //(NOTE! This does not clean image on screen, it only clears it in the frame buffer inside
                             // ESP32).
@@ -359,6 +362,7 @@ static void drawStatusPageAddress(Inkplate &display, const FontCollection &fonts
 static void updateDisplay(bool fullRefresh)
 {
     DisplayPowerCheck power = powerUpDisplay(display);
+    recordDisplayUpdate(status.display, power.ok, power.attempts, power.powerGood, power.int1, power.int2);
     if (!power.ok)
     {
         Serial.println("Display power didn't come up, skipping this screen update");
